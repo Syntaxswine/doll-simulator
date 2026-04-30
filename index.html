@@ -328,6 +328,36 @@
   }
   .doll-option .stars { letter-spacing: 0.08em; color: var(--ribbon); }
   .doll-option .stars.muted { color: var(--muted); }
+  /* autoplay toolbar */
+  .autoplay-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7em;
+    padding: 0.5em 0.2em;
+    border-bottom: 1px solid var(--rule);
+    font-size: 0.86em;
+  }
+  .autoplay-btn {
+    padding: 0.3em 0.9em;
+    font-size: 0.88em;
+    font-family: inherit;
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+    text-align: center;
+    background: #ede1cd;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    cursor: pointer;
+    line-height: 1.2;
+  }
+  .autoplay-btn:hover { background: #f4e8d0; border-color: var(--ribbon); color: var(--ribbon); }
+  .autoplay-btn.playing {
+    background: var(--ribbon);
+    color: var(--bg);
+    border-color: var(--ribbon);
+  }
+  .autoplay-btn.playing:hover { background: var(--ribbon); color: var(--bg); }
+  .autoplay-hint { color: var(--muted); font-style: italic; }
   ::selection { background: var(--ribbon); color: var(--bg); }
 </style>
 </head>
@@ -349,6 +379,10 @@
     <div class="status" id="status"></div>
     <div class="struct" id="struct"></div>
     <div class="ribbons" id="ribbons"></div>
+    <div class="autoplay-row" id="autoplay-row">
+      <button id="autoplay-btn" class="autoplay-btn">▶ play</button>
+      <span class="autoplay-hint">auto-advance, picking thoughts at random</span>
+    </div>
     <div id="log" class="log"></div>
     <div id="controls" class="controls"></div>
   </div>
@@ -1576,6 +1610,8 @@ const state = {
   doll: null,
   ended: false,
   phase: "select",  // "select" | "playing" | "ended"
+  autoplay: false,
+  autoplayTimer: null,
 };
 
 // ============================================================
@@ -1594,6 +1630,8 @@ const $log = document.getElementById('log');
 const $controls = document.getElementById('controls');
 const $items = document.getElementById('items');
 const $memories = document.getElementById('memories');
+const $autoplayBtn = document.getElementById('autoplay-btn');
+$autoplayBtn.onclick = () => setAutoplay(!state.autoplay);
 
 // ============================================================
 // rendering
@@ -1724,6 +1762,7 @@ function showSelectionScreen() {
   state.phase = "select";
   state.doll = null;
   state.ended = false;
+  setAutoplay(false);
   $selectScreen.style.display = '';
   $playScreen.style.display = 'none';
   renderItems();
@@ -1926,6 +1965,7 @@ function runScenario(sc) {
     };
     $controls.appendChild(b);
   });
+  scheduleAutoAdvance();
 }
 
 function applyOutcome(sc, outcome) {
@@ -2054,12 +2094,14 @@ function showContinue() {
   b.textContent = "(time passes)";
   b.onclick = () => nextScenario();
   $controls.appendChild(b);
+  scheduleAutoAdvance();
 }
 
 function endRun(end) {
   state.doll.ended = true;
   state.ended = true;
   state.phase = "ended";
+  setAutoplay(false);
   $controls.innerHTML = '';
   const d = state.doll;
 
@@ -2091,6 +2133,49 @@ function endRun(end) {
   b.textContent = "begin again";
   b.onclick = showSelectionScreen;
   $controls.appendChild(b);
+}
+
+// ============================================================
+// autoplay
+// ============================================================
+
+function setAutoplay(on) {
+  state.autoplay = on;
+  if ($autoplayBtn) {
+    $autoplayBtn.textContent = on ? "❚❚ pause" : "▶ play";
+    $autoplayBtn.classList.toggle("playing", on);
+  }
+  if (on) {
+    scheduleAutoAdvance();
+  } else if (state.autoplayTimer) {
+    clearTimeout(state.autoplayTimer);
+    state.autoplayTimer = null;
+  }
+}
+
+function scheduleAutoAdvance(delayMs) {
+  if (!state.autoplay) return;
+  if (!state.doll || state.doll.ended) return;
+  if (state.phase !== "playing") return;
+  if (state.autoplayTimer) clearTimeout(state.autoplayTimer);
+  if (delayMs === undefined) {
+    // figure out which phase of the loop we're in by the visible buttons
+    const btns = $controls.querySelectorAll('button');
+    if (btns.length === 1 && btns[0].classList.contains('primary')) {
+      delayMs = 1800;  // (time passes) — short
+    } else {
+      delayMs = 2500;  // thought selection — longer, give time to read setup
+    }
+  }
+  state.autoplayTimer = setTimeout(() => {
+    state.autoplayTimer = null;
+    if (!state.autoplay) return;
+    if (!state.doll || state.doll.ended) return;
+    if (state.phase !== "playing") return;
+    const btns = $controls.querySelectorAll('button');
+    if (btns.length === 0) return;
+    btns[Math.floor(Math.random() * btns.length)].click();
+  }, delayMs);
 }
 
 // ============================================================
