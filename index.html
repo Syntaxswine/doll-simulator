@@ -613,6 +613,15 @@ const PIECE_LABEL = {
 function pieceLabel(d, p) {
   return (d.wardrobeLabels && d.wardrobeLabels[p]) || PIECE_LABEL[p];
 }
+function headLabel(d) {
+  if (!d) return "Head";
+  if (d.category === "Plush / Teddy Bear") return "Head/Fur";
+  if (d.category === "Cloth") return "Face";
+  if (d.category === "Wooden Character") return "Paint";
+  if (d.category === "Hard Plastic") return "Plastic";
+  if (d.category === "Composition") return "Composition";
+  return "Bisque";
+}
 const PIECE_VALUE = {
   original: 100,
   period: 70,
@@ -839,7 +848,7 @@ addScenario({
     if (r < 0.6) {
       return { deltas: {}, narration: `You arrive intact. The new owner cuts the tape with a kitchen knife and gasps, just slightly, when she sees you.`, changeOwner: true, ownerForce: pick(["serious", "curio", "inheritor"]), yearsElapsed: 0 };
     } else if (r < 0.9) {
-      return { deltas: { hair: -6 }, wardrobeChange: { bonnet: "damaged" }, narration: `Some shifting in transit. The bonnet is bent; the hair is mussed. Recoverable.`, changeOwner: true, ownerForce: pick(["serious", "curio", "inheritor"]), yearsElapsed: 0 };
+      return { deltas: { hair: -6 }, wardrobeChange: { bonnet: "damaged" }, narration: `Some shifting in transit. The ${pieceLabel(d, 'bonnet')} is bent; the hair is mussed. Recoverable.`, changeOwner: true, ownerForce: pick(["serious", "curio", "inheritor"]), yearsElapsed: 0 };
     } else {
       return { deltas: { bisque: -22 }, item: { id: "shipping_crack", name: "a hairline crack at the temple", flavor: "from the FedEx truck" }, narration: `The truck went over a curb. The temple now bears a fine, permanent line. Insurance paid out. The owner is stoic.`, changeOwner: true, ownerForce: pick(["curio", "inheritor"]), yearsElapsed: 0 };
     }
@@ -885,10 +894,10 @@ addScenario({
     } else if (r < 0.95) {
       return { deltas: { reputation: rint(6, 12), provenance: rint(2, 4) }, memory: "You appeared in a doll-collector publication.", narration: `One of the photographs ends up in a hobbyist publication. A short caption. Your maker, your mold, your owner's first name.`, yearsElapsed: rint(0, 1) };
     } else {
-      return { deltas: { hair: -4 }, wardrobeChange: { bonnet: "damaged" }, narration: `She poses you too aggressively. The wig shifts. The bonnet tilts permanently. She does not, on review, like the photographs.`, yearsElapsed: rint(0, 1) };
+      return { deltas: { hair: -4 }, wardrobeChange: { bonnet: "damaged" }, narration: `She poses you too aggressively. The hair shifts. The ${pieceLabel(d, 'bonnet')} tilts permanently. She does not, on review, like the photographs.`, yearsElapsed: rint(0, 1) };
     }
   },
-  thoughts: ["Catch my good side.", "The light is correct.", "Try not to disturb the wig."],
+  thoughts: ["Catch my good side.", "The light is correct.", "Try not to disturb the hair."],
 });
 
 addScenario({
@@ -926,7 +935,7 @@ addScenario({
       return { deltas: { hair: rint(2, 6), eyes: rint(1, 3) }, narration: `Methodical. The dust is removed. The lace is steamed. You feel, briefly, new.`, yearsElapsed: 1 };
     } else {
       const r = Math.random();
-      if (r < 0.55) return { deltas: { hair: -3 }, narration: `She catches the wig with the brush. A small clump comes loose. She blanches and pretends it didn't.`, item: { id: "thin_wig", name: "a thinning patch in the wig", flavor: "above the left ear" }, yearsElapsed: 1 };
+      if (r < 0.55) return { deltas: { hair: -3 }, narration: `She catches the hair with the brush. A small clump comes loose. She blanches and pretends it didn't.`, item: { id: "thin_hair", name: "a thinning patch in the hair", flavor: "above the left ear" }, yearsElapsed: 1 };
       else if (r < 0.9) return { deltas: { bisque: -8 }, bodyChange: { rightArm: "loose" }, narration: `She drops you. Not far. The bisque survives. The shoulder doesn't — the right arm now hangs loose at the joint.`, item: { id: "shoulder_chip", name: "a small chip on the shoulder", flavor: "covered, mostly, by the dress" }, yearsElapsed: 1 };
       else return { deltas: { bisque: -14 }, bodyChange: { leftArm: "detached" }, narration: `She drops you. The left arm comes off entirely. The arm rolls under the credenza. It will be retrieved with effort.`, item: { id: "arm_off", name: "the left arm, separated", flavor: "later reattached, but the joint is wrong" }, yearsElapsed: 1 };
     }
@@ -946,7 +955,7 @@ addScenario({
     yearsElapsed: rint(0, 1),
     narration: `She is taken out. She is admired. The visiting collector says she "has the same Heubach but in worse costume." The owner is gracious. The owner is, secretly, pleased.`
   }),
-  thoughts: ["Be looked at.", "Don't let her touch the wig.", "Mine is the better example."],
+  thoughts: ["Be looked at.", "Don't let her touch the hair.", "Mine is the better example."],
 });
 
 // ---- shows ----
@@ -1099,7 +1108,7 @@ addScenario({
     const r = Math.random();
     if (r < 0.55) return { deltas: {}, narration: `She returns. You are slightly askew, but recovered.`, yearsElapsed: 0 };
     if (r < 0.78) return { deltas: { hair: -4 }, wardrobeChange: { dress: roll(0.4) ? "damaged" : d.wardrobe.dress.state }, narration: `She forgets. The sofa cushion eats you, briefly. Recovered after dinner.`, item: { id: "cushion_crease", name: "a permanent crease in your dress", flavor: "from the back of the sofa" }, yearsElapsed: 0 };
-    if (r < 0.93) return { deltas: { hair: -8, bisque: -3 }, wardrobeChange: { dress: "damaged", bonnet: "damaged" }, narration: `She forgets for three days. You are eventually retrieved. The wig is uneven. The dress is creased and the bonnet is bent.`, item: { id: "wig_part_lost", name: "a wig that no longer parts the same way", flavor: "from three days face-down on the sofa" }, yearsElapsed: 1 };
+    if (r < 0.93) return { deltas: { hair: -8, bisque: -3 }, wardrobeChange: { dress: "damaged", bonnet: "damaged" }, narration: `She forgets for three days. You are eventually retrieved. The hair is uneven. The ${pieceLabel(d, 'dress')} is creased and the ${pieceLabel(d, 'bonnet')} is bent.`, item: { id: "hair_part_lost", name: "hair that no longer sits the same way", flavor: "from three days face-down on the sofa" }, yearsElapsed: 1 };
     return { deltas: { bisque: -28 }, bodyChange: { leftArm: "loose" }, item: { id: "sat_on", name: "a cracked porcelain hand", flavor: "someone sat on you" }, narration: `Her husband sits down. He realizes too late. The hand will be glued. The hand will not be the same. The arm above it is no longer reliable.`, yearsElapsed: 0 };
   },
   thoughts: d => ["Don't forget me.", "It's quiet here.", `If she sits on me, ${d.age} years end here.`],
@@ -1131,7 +1140,7 @@ addScenario({
   roll: d => {
     const r = Math.random();
     if (r < 0.4) return { deltas: {}, narration: `Her grandmother intercepts. The child is allowed to look at you, but not to hold you. There is brief crying.`, yearsElapsed: 0 };
-    if (r < 0.7) return { deltas: { hair: -8 }, wardrobeChange: { bonnet: "damaged", dress: "damaged" }, narration: `She holds you for forty minutes. Your hair is, after, in a configuration it has never been in.`, item: { id: "kid_hairdo", name: "a wig the child rearranged", flavor: "set, somehow, with apple juice" }, yearsElapsed: 0 };
+    if (r < 0.7) return { deltas: { hair: -8 }, wardrobeChange: { bonnet: "damaged", dress: "damaged" }, narration: `She holds you for forty minutes. Your hair is, after, in a configuration it has never been in.`, item: { id: "kid_hairdo", name: "hair the child rearranged", flavor: "set, somehow, with apple juice" }, yearsElapsed: 0 };
     if (r < 0.88) return { deltas: { bisque: -10, eyes: -10 }, item: { id: "fingered_eye", name: "a sleep eye that no longer sleeps", flavor: "a small finger pressed too hard" }, narration: `She presses a finger into your eye. Repeatedly. The mechanism, when she leaves, no longer closes.`, yearsElapsed: 0 };
     if (r < 0.97) return { deltas: { bisque: -22 }, bodyChange: { rightArm: "detached" }, item: { id: "arm_pulled", name: "the right arm, pulled off", flavor: "the child wanted to see how it came out" }, narration: `She pulls. She is small but committed. The right arm comes off in her hand. Her grandmother arrives, finally, in horror.`, yearsElapsed: 0 };
     return { deltas: { bisque: -100 }, bodyChange: { faceShattered: true }, runEnd: { kind: "destroyed", how: "the granddaughter dropped you on a hardwood floor" }, narration: `She drops you. The hardwood is unforgiving. The bisque is in three pieces. The largest piece is your forehead.`, yearsElapsed: 0 };
@@ -1168,7 +1177,7 @@ addScenario({
   setup: d => `The cat is on the shelf. You are also on the shelf. You did not know cats could climb this high.`,
   roll: d => {
     const r = Math.random();
-    if (r < 0.55) return { deltas: { hair: -3 }, narration: `The cat sniffs your wig and disapproves of it. She leaves.`, yearsElapsed: 0 };
+    if (r < 0.55) return { deltas: { hair: -3 }, narration: `The cat sniffs your hair and disapproves of it. She leaves.`, yearsElapsed: 0 };
     if (r < 0.85) return { deltas: { bisque: -10 }, wardrobeChange: { dress: "damaged" }, item: { id: "feline_acquaintance", name: "puncture marks across the bodice", flavor: "from a cat who decided you were prey" }, narration: `She bats you off the shelf. You land on a rug. The bodice has been punctured in four places.`, yearsElapsed: 0 };
     return { deltas: { bisque: -100 }, bodyChange: { faceShattered: true }, runEnd: { kind: "destroyed", how: "the cat" }, narration: `She knocks you off the shelf onto tile. The pieces are too small to glue.`, yearsElapsed: 0 };
   },
@@ -1186,9 +1195,9 @@ addScenario({
     if (r < 0.5) return { deltas: {}, narration: `She holds you. Nobody touches you. You are returned to the cabinet. You smell of chlorine for a week.`, yearsElapsed: 0 };
     if (r < 0.85) {
       const bodyHit = ["kid leather","cloth","felt","composition","mohair"].includes(d.bodyMaterial) ? -28 : -10;
-      return { deltas: { bisque: -8, hair: -10, bodyIntegrity: bodyHit }, wardrobeChange: { dress: "damaged", bonnet: "damaged" }, item: { id: "pool_splash", name: "chlorine-streaked costume and frizzed hair", flavor: "from a splash you could not avoid" }, narration: `A splash. You are wet. The wig is forever changed. The costume is dye-streaked. ${d.bodyMaterial === "kid leather" ? "The kid-leather body has, internally, begun to rot." : d.bodyMaterial === "felt" || d.bodyMaterial === "cloth" ? "The body fabric has begun to wick and warp." : "The composition body is splotched."}`, yearsElapsed: rint(0, 1) };
+      return { deltas: { bisque: -8, hair: -10, bodyIntegrity: bodyHit }, wardrobeChange: { dress: "damaged", bonnet: "damaged" }, item: { id: "pool_splash", name: "chlorine-streaked costume and frizzed hair", flavor: "from a splash you could not avoid" }, narration: `A splash. You are wet. The hair is forever changed. The costume is dye-streaked. ${d.bodyMaterial === "kid leather" ? "The kid-leather body has, internally, begun to rot." : d.bodyMaterial === "felt" || d.bodyMaterial === "cloth" ? "The body fabric has begun to wick and warp." : d.bodyMaterial === "mohair" ? "The mohair is matted; the underlying stuffing is soaked." : d.bodyMaterial === "composition" ? "The composition body is splotched." : "The body is wet but otherwise intact."}`, yearsElapsed: rint(0, 1) };
     }
-    return { deltas: { bisque: -100 }, runEnd: { kind: "destroyed", how: "the pool" }, narration: `A child knocks you in. You sink. By the time she fishes you out, the bisque has separated from the cloth body, the wig has unmoored, and the eyes — the eyes float separately.`, yearsElapsed: 0 };
+    return { deltas: { bisque: -100 }, runEnd: { kind: "destroyed", how: "the pool" }, narration: `A child knocks you in. You sink. By the time she fishes you out, the head has separated from the body, the hair has unmoored, and the eyes — the eyes float separately.`, yearsElapsed: 0 };
   },
   thoughts: d => ["Indoors. Take me indoors.", "If a child touches the table, I am over.", `I am ${d.age} years old. Do not put me near a pool.`],
 });
@@ -1225,8 +1234,8 @@ addScenario({
   setup: d => `She has set you down on the sofa. She has set the day's mail on top of you. She has set yesterday's mail on top of that.`,
   roll: d => {
     const r = Math.random();
-    if (r < 0.5) return { deltas: { hair: -3 }, wardrobeChange: { dress: d.wardrobe.dress.state === "original" ? "damaged" : d.wardrobe.dress.state }, narration: `Three weeks. You are face-down. There is a Pottery Barn catalog touching your bonnet.`, yearsElapsed: 1 };
-    if (r < 0.85) return { deltas: { bisque: -6, hair: -8 }, wardrobeChange: { dress: "damaged", bonnet: "damaged" }, item: { id: "mail_crease", name: "a permanent crease across the chest", flavor: "from a stack of QVC catalogs" }, narration: `Months. The catalogs press a permanent crease across your chest. The wig is matted on one side.`, yearsElapsed: rint(1, 2) };
+    if (r < 0.5) return { deltas: { hair: -3 }, wardrobeChange: { dress: d.wardrobe.dress.state === "original" ? "damaged" : d.wardrobe.dress.state }, narration: `Three weeks. You are face-down. There is a Pottery Barn catalog touching your ${pieceLabel(d, 'bonnet')}.`, yearsElapsed: 1 };
+    if (r < 0.85) return { deltas: { bisque: -6, hair: -8 }, wardrobeChange: { dress: "damaged", bonnet: "damaged" }, item: { id: "mail_crease", name: "a permanent crease across the chest", flavor: "from a stack of QVC catalogs" }, narration: `Months. The catalogs press a permanent crease across your chest. The hair is matted on one side.`, yearsElapsed: rint(1, 2) };
     return { deltas: { bisque: -22, hair: -15, bodyIntegrity: ["cloth","felt","mohair"].includes(d.bodyMaterial) ? -25 : -10 }, wardrobeChange: { dress: "damaged", undergarments: "damaged" }, item: { id: "mouse_evidence", name: "mouse damage at the hem", flavor: "discovered the day she finally moved the pile" }, narration: `Two seasons. When she moves the pile, you have been visited. There is mouse damage. There is a smell.`, yearsElapsed: rint(2, 3) };
   },
   thoughts: ["I am face-down on a sofa under a stack of mail.", "There is, somewhere, a cat.", "This is a temporary arrangement. (It is not.)"],
@@ -1258,7 +1267,7 @@ addScenario({
   roll: d => {
     const r = Math.random();
     if (r < 0.4) return { deltas: { bodyIntegrity: -rint(5, 10) }, item: { id: "moth_pinholes", name: "small pinholes through the body fabric", flavor: "from a brief moth incident" }, narration: `A few small holes. Mostly along the shoulder seam. She finds them later and is briefly horrified.`, yearsElapsed: 0 };
-    if (r < 0.85) return { deltas: { bodyIntegrity: -rint(15, 30) }, wardrobeChange: { dress: "damaged" }, item: { id: "moth_extensive", name: "extensive moth damage along one side", flavor: "felt under the dress now reads as lace" }, narration: `An infestation she did not know about. The felt under the dress has been reduced to a kind of lace. The damage is structural.`, yearsElapsed: rint(0, 1) };
+    if (r < 0.85) return { deltas: { bodyIntegrity: -rint(15, 30) }, wardrobeChange: { dress: "damaged" }, item: { id: "moth_extensive", name: "extensive moth damage along one side", flavor: `${d.bodyMaterial} under the ${pieceLabel(d, 'dress')} now reads as lace` }, narration: `An infestation she did not know about. The ${d.bodyMaterial} under the ${pieceLabel(d, 'dress')} has been reduced to a kind of lace. The damage is structural.`, yearsElapsed: rint(0, 1) };
     return { deltas: { bodyIntegrity: -100 }, runEnd: { kind: "destroyed", how: "moths" }, narration: `An infestation she found too late. There is, at this point, more hole than body.`, yearsElapsed: 1 };
   },
   thoughts: ["Cedar. Lavender. Anything.", "I felt them weeks ago.", "Felt is, frankly, a poor material to be made of."],
@@ -1376,8 +1385,8 @@ addScenario({
     const repairs = [];
     const deltas = {};
     const bodyChange = {};
-    if (d.bisque < 60) { deltas.bisque = rint(15, 30); repairs.push("bisque stabilized"); }
-    if (d.hair < 50) { deltas.hair = rint(15, 30); repairs.push("wig replaced"); }
+    if (d.bisque < 60) { deltas.bisque = rint(15, 30); repairs.push(headLabel(d).toLowerCase() + " stabilized"); }
+    if (d.hair < 50) { deltas.hair = rint(15, 30); repairs.push(d.category === "Plush / Teddy Bear" ? "fur retouched" : d.category === "Cloth" || d.category === "Wooden Character" ? "hair retouched" : "wig replaced"); }
     if (d.eyes < 50) { deltas.eyes = rint(10, 25); repairs.push("eye mechanism repaired"); }
     if (d.body.integrity < 50) { deltas.bodyIntegrity = rint(10, 25); repairs.push("body shored up"); }
     for (const limb of LIMB_KEYS) {
@@ -1609,7 +1618,7 @@ function renderVitals() {
   if (!state.doll) { $vitals.innerHTML = ''; return; }
   const d = state.doll;
   $vitals.innerHTML = `
-    <div class="row"><span class="label">Bisque</span>${bar(d.bisque)}</div>
+    <div class="row"><span class="label">${headLabel(d)}</span>${bar(d.bisque)}</div>
     <div class="row"><span class="label">Costume</span>${bar(costumeScore(d))}</div>
     <div class="row"><span class="label">Hair</span>${bar(d.hair)}</div>
     <div class="row"><span class="label">Eyes</span>${bar(d.eyes)}</div>
@@ -2067,7 +2076,7 @@ function endRun(end) {
     epitaph = `${d.maker} ${d.mold} (${d.year}). ${d.age} years old. ${d.ownerCount} owners. ${d.scenarioCount} events.`;
   }
 
-  const totals = `Bisque ${Math.round(d.bisque)} · Costume ${costumeScore(d)} · Hair ${Math.round(d.hair)} · Eyes ${Math.round(d.eyes)} · Body ${Math.round(d.body.integrity)} · Prov ${Math.round(d.provenance)} · Rep ${Math.round(d.reputation)}`;
+  const totals = `${headLabel(d)} ${Math.round(d.bisque)} · Costume ${costumeScore(d)} · Hair ${Math.round(d.hair)} · Eyes ${Math.round(d.eyes)} · Body ${Math.round(d.body.integrity)} · Prov ${Math.round(d.provenance)} · Rep ${Math.round(d.reputation)}`;
 
   logHTML(`
     <div class="end-screen">
