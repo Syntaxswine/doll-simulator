@@ -1,0 +1,1411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Doll Simulator</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg: #f1e7d6;
+    --panel: #e8dcc6;
+    --ink: #3a2630;
+    --ribbon: #a94a5a;
+    --ribbon-blue: #345f7a;
+    --muted: #8a7068;
+    --gilt: #b48a48;
+    --leaf: #6e8a64;
+    --rule: #c4b29a;
+    --shadow: rgba(58, 38, 48, 0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(circle at 12% 18%, rgba(169, 74, 90, 0.05) 0 18px, transparent 19px),
+      radial-gradient(circle at 78% 42%, rgba(110, 138, 100, 0.05) 0 14px, transparent 15px),
+      radial-gradient(circle at 38% 78%, rgba(169, 74, 90, 0.05) 0 16px, transparent 17px),
+      radial-gradient(circle at 88% 88%, rgba(110, 138, 100, 0.05) 0 14px, transparent 15px);
+    background-size: 220px 260px;
+    color: var(--ink);
+    font-family: 'Bookman Old Style', 'Goudy Old Style', 'Georgia', 'Garamond', serif;
+    max-width: 740px;
+    margin: 2em auto;
+    padding: 1em 2em 4em;
+    line-height: 1.6;
+  }
+  h1 {
+    font-variant: small-caps;
+    letter-spacing: 0.22em;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 0.3em;
+    text-align: center;
+    font-weight: normal;
+    margin-bottom: 0.2em;
+    color: var(--ribbon);
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 0;
+    margin-bottom: 1.4em;
+  }
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.6em 1.4em 1em;
+    box-shadow: 0 1px 0 var(--shadow), 0 6px 24px var(--shadow);
+  }
+  h2 {
+    font-variant: small-caps;
+    color: var(--gilt);
+    margin-top: 1.6em;
+    font-weight: normal;
+    letter-spacing: 0.1em;
+    border-bottom: 1px dotted var(--rule);
+    padding-bottom: 0.2em;
+    font-size: 1em;
+  }
+  .id-card {
+    text-align: center;
+    padding: 0.7em 0 0.6em;
+    border-bottom: 1px solid var(--rule);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+  }
+  .id-card .maker { color: var(--ribbon); font-size: 1.05em; }
+  .id-card .meta { color: var(--muted); font-size: 0.86em; margin-top: 0.15em; letter-spacing: 0.04em; }
+  .vitals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4em 1.4em;
+    padding: 0.6em 0.2em 0.7em;
+    border-bottom: 1px solid var(--rule);
+    font-variant: small-caps;
+    letter-spacing: 0.04em;
+    font-size: 0.92em;
+  }
+  .vitals .row { display: flex; align-items: center; gap: 0.5em; }
+  .vitals .label { color: var(--muted); min-width: 5.6em; display: inline-block; }
+  .vitals .bar {
+    flex: 1;
+    height: 0.55em;
+    background: #d6c5a8;
+    border: 1px solid var(--rule);
+    border-radius: 1px;
+    position: relative;
+    overflow: hidden;
+  }
+  .vitals .bar > span {
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    background: var(--leaf);
+    transition: width 0.4s, background 0.4s;
+  }
+  .vitals .bar.low > span { background: var(--ribbon); }
+  .vitals .bar.mid > span { background: var(--gilt); }
+  .vitals .num {
+    color: var(--ink);
+    font-variant: tabular-nums;
+    font-size: 0.85em;
+    min-width: 2.2em;
+    text-align: right;
+  }
+  .status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3em 1.2em;
+    padding: 0.5em 0.2em;
+    border-bottom: 1px solid var(--rule);
+    font-variant: small-caps;
+    letter-spacing: 0.04em;
+    font-size: 0.88em;
+  }
+  .status .label { color: var(--muted); margin-right: 0.4em; }
+  .status strong { color: var(--ink); font-weight: normal; font-variant: normal; letter-spacing: 0; }
+  .ribbons {
+    display: flex;
+    gap: 0.8em;
+    align-items: center;
+    padding: 0.5em 0.2em;
+    border-bottom: 1px solid var(--rule);
+    font-variant: small-caps;
+    letter-spacing: 0.04em;
+    font-size: 0.86em;
+  }
+  .ribbons .label { color: var(--muted); }
+  .ribbons .ribbon-tally { display: inline-flex; align-items: center; gap: 0.2em; }
+  .ribbons .pill {
+    display: inline-block;
+    padding: 0 0.5em;
+    border: 1px solid;
+    border-radius: 1em;
+    margin-right: 0.3em;
+    font-variant: tabular-nums;
+  }
+  .ribbons .pill.blue { color: var(--ribbon-blue); border-color: var(--ribbon-blue); }
+  .ribbons .pill.red  { color: var(--ribbon); border-color: var(--ribbon); }
+  .ribbons .pill.white { color: var(--muted); border-color: var(--muted); }
+  .ribbons .pill.gold { color: var(--gilt); border-color: var(--gilt); }
+  .ribbons .none { color: var(--muted); font-style: italic; }
+  .log { min-height: 12em; padding: 1em 0.4em; }
+  .log p { margin: 0.5em 0; }
+  .log .narrator { color: var(--ink); }
+  .log .doll {
+    color: var(--ribbon);
+    font-style: italic;
+    margin-left: 1.4em;
+    text-indent: -0.6em;
+  }
+  .log .doll::before { content: '\201C'; margin-right: 0.05em; }
+  .log .doll::after { content: '\201D'; margin-left: 0.05em; }
+  .log .system {
+    color: var(--gilt);
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+    font-size: 0.92em;
+  }
+  .log .system strong { color: var(--ink); font-weight: normal; }
+  .log .scene-title {
+    text-align: center;
+    color: var(--muted);
+    font-variant: small-caps;
+    letter-spacing: 0.16em;
+    margin: 0.8em 0 0.2em;
+    font-size: 0.9em;
+  }
+  .log .stat-up { color: var(--leaf); }
+  .log .stat-dn { color: var(--ribbon); }
+  .log .item-acq { color: var(--gilt); font-style: italic; }
+  .log .ribbon-blue { color: var(--ribbon-blue); font-variant: small-caps; letter-spacing: 0.08em; }
+  .log .ribbon-red  { color: var(--ribbon); font-variant: small-caps; letter-spacing: 0.08em; }
+  .controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5em;
+    padding-top: 0.8em;
+    border-top: 1px solid var(--rule);
+  }
+  .controls .prompt {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.92em;
+    margin-bottom: 0.2em;
+    text-align: center;
+  }
+  button {
+    background: #ede1cd;
+    color: var(--ink);
+    border: 1px solid var(--rule);
+    padding: 0.7em 1.1em;
+    font-family: inherit;
+    font-size: 1em;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+    line-height: 1.3;
+  }
+  button:hover:not(:disabled) {
+    background: #f4e8d0;
+    border-color: var(--ribbon);
+    color: var(--ribbon);
+  }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary {
+    border-color: var(--ribbon);
+    color: var(--ribbon);
+    text-align: center;
+    font-variant: small-caps;
+    letter-spacing: 0.08em;
+  }
+  .item-list, .memory-list {
+    columns: 2;
+    column-gap: 1.6em;
+    font-size: 0.9em;
+    padding: 0.4em 0;
+  }
+  .item-list > div, .memory-list > div {
+    break-inside: avoid;
+    padding: 0.18em 0;
+  }
+  .item-list .ix-name { color: var(--ink); }
+  .item-list .ix-flavor { color: var(--muted); font-size: 0.92em; }
+  .memory-list > div { color: var(--muted); font-style: italic; }
+  .empty { color: var(--muted); font-style: italic; padding: 0.3em 0; }
+  .end-screen { text-align: center; padding: 1.5em 0 0.5em; }
+  .end-screen .verdict {
+    font-size: 1.25em;
+    color: var(--ribbon);
+    margin: 0.6em 0;
+    font-variant: small-caps;
+    letter-spacing: 0.1em;
+  }
+  .end-screen .verdict.win { color: var(--ribbon-blue); }
+  .end-screen .epitaph {
+    color: var(--muted);
+    font-style: italic;
+    margin: 0.6em auto 1em;
+    max-width: 32em;
+  }
+  .end-screen .totals {
+    color: var(--ink);
+    font-size: 0.92em;
+    margin: 0.4em 0 1em;
+  }
+  ::selection { background: var(--ribbon); color: var(--bg); }
+</style>
+</head>
+<body>
+  <h1>Doll Simulator</h1>
+  <p class="subtitle">a record of your ownerships</p>
+
+  <div class="frame">
+    <div class="id-card" id="id-card"></div>
+    <div class="vitals" id="vitals"></div>
+    <div class="status" id="status"></div>
+    <div class="ribbons" id="ribbons"></div>
+    <div id="log" class="log"></div>
+    <div id="controls" class="controls"></div>
+  </div>
+
+  <h2>Damage and replacements</h2>
+  <div id="items" class="item-list"></div>
+
+  <h2>What is known about you</h2>
+  <div id="memories" class="memory-list"></div>
+
+<script>
+"use strict";
+
+// ---------- helpers ----------
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function pickN(arr, n) {
+  const a = arr.slice();
+  const out = [];
+  while (out.length < n && a.length) {
+    out.push(a.splice(Math.floor(Math.random() * a.length), 1)[0]);
+  }
+  return out;
+}
+function roll(p) { return Math.random() < p; }
+function clamp(x, lo, hi) { return Math.max(lo, Math.min(hi, x)); }
+function rint(lo, hi) { return lo + Math.floor(Math.random() * (hi - lo + 1)); }
+
+// ---------- doll catalogue ----------
+
+const DOLL_TEMPLATES = [
+  { maker: "Kestner", country: "Germany", category: "German Antique Bisque", molds: ["#143","#154","#155","#171 'Daisy'","#192"], yearRange: [1885, 1920] },
+  { maker: "Kämmer & Reinhardt", country: "Germany", category: "German Antique Bisque", molds: ["#100 'Baby Marie'","#101 'Marie'","#114 'Hans'","#117 'Mein Liebling'","#121"], yearRange: [1900, 1925] },
+  { maker: "Simon & Halbig", country: "Germany", category: "German Antique Bisque", molds: ["#1078","#1079","#1248","#1299","#1488"], yearRange: [1875, 1925] },
+  { maker: "Heubach", country: "Germany", category: "German Character", molds: ["Pouty Boy","Whistler","Coquette","Googly #260","#7602 Crying Girl"], yearRange: [1885, 1930] },
+  { maker: "Jumeau", country: "France", category: "French Bébé", molds: ["Bébé Triste","Long-Face Triste","Premier Bébé","Tête Jumeau","Bébé Mignon"], yearRange: [1865, 1899] },
+  { maker: "Bru", country: "France", category: "French Bébé", molds: ["Bru Jne 5","Bru Jne 8","Bru Jne 11","Circle-Dot","Smiler"], yearRange: [1872, 1899] },
+  { maker: "Steiner", country: "France", category: "French Bébé", molds: ["Figure A","Figure C","Bébé Phenix"], yearRange: [1870, 1898] },
+  { maker: "Lenci", country: "Italy", category: "Cloth", molds: ["Series 300 Lucia","Series 109 Mariuccia","Series 1500","Felt Boudoir"], yearRange: [1922, 1945] },
+  { maker: "Käthe Kruse", country: "Germany", category: "Cloth", molds: ["Doll I","Doll VIII","Schlenkerchen"], yearRange: [1911, 1955] },
+  { maker: "Steiff", country: "Germany", category: "Cloth", molds: ["Felt Boy","Felt Soldier","Sailor"], yearRange: [1903, 1935] },
+  { maker: "Effanbee", country: "USA", category: "Composition", molds: ["Patsy","Patsy Ann","Dewees Cochran 'Anne Shirley'","Bubbles"], yearRange: [1920, 1948] },
+  { maker: "Madame Alexander", country: "USA", category: "Hard Plastic", molds: ["Cissy","Cissette","Wendy-Kins","Margaret O'Brien"], yearRange: [1948, 1965] },
+  { maker: "Schoenhut", country: "USA", category: "Wooden Character", molds: ["Pouty Tootsie Wootsie","Miss Dolly","Manikin"], yearRange: [1911, 1928] },
+  { maker: "Armand Marseille", country: "Germany", category: "German Antique Bisque", molds: ["#370 Floradora","#390","#341 'My Dream Baby'","#351"], yearRange: [1885, 1925] },
+];
+
+const REGISTRY_PREFIX = ["UFDC", "ANT", "GBC", "FCB", "K&R", "JM", "AM", "SH", "LEN", "EFF"];
+
+// ---------- owners ----------
+//
+// Each archetype's flags drive scenario gating:
+//   shows: enters her into UFDC competition
+//   children: grandchildren / nieces visit
+//   pets: dogs / cats around
+//   pool: outdoor entertaining
+//   pristine: archival storage; lower hazard rate
+//   chaotic: hoarder; high random hazard
+//   interim: short-duration transition owner
+//   appraises: provenance gain available
+//   sun: poor lighting / window risk
+
+const OWNER_TYPES = [
+  {
+    id: "serious",
+    label: "the Serious Collector",
+    desc: "A UFDC member of long standing. Cotton gloves, climate-controlled cabinet, member's tag at every regional. She knows your maker. She knows your mold number.",
+    weight: 14,
+    duration: [5, 9],
+    flags: { shows: true, pristine: true, appraises: true },
+    hazard: 0.08,
+  },
+  {
+    id: "curio",
+    label: "the Curio-Cabinet Lady",
+    desc: "A retired schoolteacher. You sit in a glass case behind a Hummel and a brass bell, dusted on alternate Sundays.",
+    weight: 12,
+    duration: [4, 8],
+    flags: { sun: true },
+    hazard: 0.12,
+  },
+  {
+    id: "inheritor",
+    label: "the Sentimental Inheritor",
+    desc: "She inherited you from her grandmother. She is touched. She is not trained. You will be left, eventually, on a sofa.",
+    weight: 12,
+    duration: [3, 6],
+    flags: { sun: true, children: true },
+    hazard: 0.25,
+  },
+  {
+    id: "hostess",
+    label: "the Granddaughter Hostess",
+    desc: "She loves you. Four times a year, however, the grandchildren visit, and you are not, always, behind glass.",
+    weight: 10,
+    duration: [4, 7],
+    flags: { children: true, pets: true, pool: true },
+    hazard: 0.30,
+  },
+  {
+    id: "hoarder",
+    label: "the Hoarder",
+    desc: "Her house is a maze of paper. You are face-down on a sofa under a stack of catalogs. There is, somewhere, a cat.",
+    weight: 9,
+    duration: [4, 8],
+    flags: { chaotic: true, pets: true },
+    hazard: 0.45,
+  },
+  {
+    id: "dealer",
+    label: "the Antiques Dealer",
+    desc: "You are in inventory. There is a tag on your wrist with a price written in pencil. You will be sold.",
+    weight: 6,
+    duration: [2, 3],
+    flags: { interim: true, appraises: true },
+    hazard: 0.10,
+  },
+  {
+    id: "restorer",
+    label: "the Doll Restorer",
+    desc: "You are at the doll hospital. They are kind. They are also, with great seriousness, replacing things.",
+    weight: 4,
+    duration: [1, 2],
+    flags: { interim: true, repair: true },
+    hazard: 0.05,
+  },
+  {
+    id: "estate",
+    label: "the Estate Liquidator",
+    desc: "Someone has died. Her family is sorting. You are in a labeled box on a folding table. You will be moving.",
+    weight: 4,
+    duration: [1, 2],
+    flags: { interim: true },
+    hazard: 0.10,
+  },
+];
+
+function ownerById(id) { return OWNER_TYPES.find(o => o.id === id); }
+
+// ---------- scenarios ----------
+//
+// Each:
+//   id, title, weight,
+//   owners: optional list of owner ids,
+//   guard: optional fn(d) -> bool,
+//   minDay, maxDay: optional days-with-owner range,
+//   setup(d): narrator setup string,
+//   roll(d): outcome object — { deltas, item, memory, narration, ribbon, ufdcResult,
+//                               changeOwner, ownerForce, runEnd, flags }
+//   thoughts: 3 strings — pure flavor, no mechanical effect
+//
+// thought selection is purely cosmetic. the outcome is rolled BEFORE thoughts are shown.
+
+const SCENARIOS = [];
+function addScenario(s) { SCENARIOS.push(s); }
+
+// ---- arrival / transition scenarios ----
+
+addScenario({
+  id: "auctioned",
+  title: "the auction",
+  weight: 4,
+  owners: ["dealer", "estate"],
+  setup: d => `A paddle goes up. Another paddle goes up. A telephone bidder, somewhere in Connecticut, raises again. The hammer falls.`,
+  roll: d => {
+    const high = d.condition > 70 && d.provenance > 30;
+    const newOwner = high ? pick(["serious", "serious", "curio"]) : pick(["curio", "inheritor", "hostess", "hoarder"]);
+    const provBoost = high ? rint(8, 14) : rint(2, 6);
+    return {
+      deltas: { provenance: provBoost, reputation: high ? rint(4, 8) : rint(1, 3) },
+      changeOwner: true, ownerForce: newOwner,
+      narration: high
+        ? `Three thousand-something. The buyer is a UFDC member from the Midwest. You have been, the catalog says, "well attended to."`
+        : `A few hundred. The buyer is, frankly, indeterminate. You are placed in a brown paper bag.`
+    };
+  },
+  thoughts: ["Bid. Bid more.", "I am priceless.", "Take me anywhere with light."],
+});
+
+addScenario({
+  id: "inherited",
+  title: "the inheritance",
+  weight: 4,
+  owners: ["estate"],
+  setup: d => `An adult niece is opening boxes in a basement. She lifts you with both hands, the way she was once told to.`,
+  roll: d => ({
+    deltas: { provenance: rint(4, 10) },
+    memory: "You were inherited; she remembers being told your maker's name once.",
+    changeOwner: true,
+    ownerForce: pick(["inheritor", "inheritor", "hostess"]),
+    narration: `She decides she will, after all, keep you. The decision is mostly guilt. Some affection.`
+  }),
+  thoughts: [
+    "Recognize me.",
+    "I knew your grandmother.",
+    "Don't put me in the sun."
+  ],
+});
+
+addScenario({
+  id: "shipped",
+  title: "the shipping crate",
+  weight: 3,
+  owners: ["dealer", "restorer"],
+  setup: d => `Foam peanuts. A great deal of bubble wrap. A shipping label addressed to a woman you have not yet met.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.6) {
+      return { deltas: {}, narration: `You arrive intact. The new owner cuts the tape with a kitchen knife and gasps, just slightly, when she sees you.`, changeOwner: true, ownerForce: pick(["serious", "curio", "inheritor"]) };
+    } else if (r < 0.9) {
+      return { deltas: { hair: -6, costume: -4 }, narration: `Some shifting in transit. Your hair is mussed; the lace at your collar is bent. Recoverable.`, changeOwner: true, ownerForce: pick(["serious", "curio", "inheritor"]) };
+    } else {
+      return { deltas: { condition: -22 }, item: { id: "shipping_crack", name: "a hairline crack at the temple", flavor: "from the FedEx truck" }, narration: `The truck went over a curb. The temple now bears a fine, permanent line. Insurance paid out. The owner is stoic.`, changeOwner: true, ownerForce: pick(["curio", "inheritor"]) };
+    }
+  },
+  thoughts: ["Don't drop the crate.", "Hold still. Hold still.", "Whatever happens, it has happened before."],
+});
+
+// ---- serious-collector and display scenarios ----
+
+addScenario({
+  id: "appraisal",
+  title: "the appraisal",
+  weight: 5,
+  owners: ["serious", "dealer"],
+  setup: d => `An appraiser arrives. A loupe. A small notebook. He turns you upside down to read your maker's marks.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.65) {
+      return { deltas: { provenance: rint(6, 12), reputation: rint(2, 5) }, memory: pick(["Your marks were verified by an appraiser who used to consult for Christie's.", "An appraiser confirmed your year, give or take."]), narration: `He confirms the maker. He confirms the year, more or less. The figure he writes down is more than the owner paid.` };
+    } else if (r < 0.9) {
+      return { deltas: { provenance: rint(2, 5) }, narration: `He hesitates. He says "later examples." The owner does not, visibly, care; she has had you appraised.` };
+    } else {
+      return { deltas: { provenance: -8, reputation: -4 }, item: { id: "doubt_attached", name: "a question mark, attached", flavor: "an appraiser doubted you in writing" }, narration: `He raises the possibility you are a reproduction. He is wrong. Nevertheless, the doubt, in writing, follows you for years.` };
+    }
+  },
+  thoughts: [
+    "Read the marks. They are correct.",
+    "I am not a reproduction.",
+    "I have nothing to prove to him."
+  ],
+});
+
+addScenario({
+  id: "photographed",
+  title: "the photograph",
+  weight: 5,
+  owners: ["serious", "curio"],
+  setup: d => `A black backdrop. A ring light. The owner's daughter, who has the better camera, is here for the afternoon.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.7) {
+      return { deltas: { reputation: rint(3, 6) }, memory: "You were photographed for the household catalog.", narration: `The photographs are crisp. Three angles. Your maker's mark documented in macro. The catalog grows by a page.` };
+    } else if (r < 0.95) {
+      return { deltas: { reputation: rint(6, 12), provenance: rint(2, 4) }, memory: "You appeared in a doll-collector publication.", narration: `One of the photographs ends up in a hobbyist publication. A short caption. Your maker, your mold, your owner's first name.` };
+    } else {
+      return { deltas: { hair: -4, costume: -2 }, narration: `She poses you too aggressively. The wig shifts. The bonnet tilts. She does not, on review, like the photographs.` };
+    }
+  },
+  thoughts: ["Catch my good side.", "The light is correct.", "Try not to disturb the wig."],
+});
+
+addScenario({
+  id: "cabinet_kept",
+  title: "the cabinet",
+  weight: 8,
+  owners: ["serious", "curio"],
+  setup: d => `Glass. The hinge clicks shut. The dehumidifier across the room hums. You watch the room.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.85) {
+      return { deltas: { reputation: 1, condition: 1 }, narration: `Days pass. The dehumidifier hums. Nothing happens. This is the point.` };
+    } else if (r < 0.97) {
+      return { deltas: { hair: 2, costume: 2 }, narration: `She opens the cabinet, dusts you with a soft brush, and re-closes it. You are restored, slightly, to yourself.` };
+    } else {
+      return { deltas: { condition: -3, eyes: -2 }, item: { id: "cabinet_sun", name: "faint sun-fading on one cheek", flavor: "the cabinet's east-facing side" }, narration: `The light, over the years, has been hitting one side of the cabinet. The cheek facing east is, faintly, lighter than the other.` };
+    }
+  },
+  thoughts: [
+    "The temperature is correct.",
+    "I have been in worse storage.",
+    "Watch the room."
+  ],
+});
+
+addScenario({
+  id: "annual_clean",
+  title: "the annual cleaning",
+  weight: 4,
+  owners: ["serious", "curio", "inheritor"],
+  setup: d => `Cotton gloves, in the good case. Bare hands, in the lesser. A small dish of distilled water, soft brushes, archival tissue.`,
+  roll: d => {
+    const careful = Math.random() < 0.65;
+    if (careful) {
+      return { deltas: { hair: rint(2, 6), costume: rint(2, 5), eyes: rint(1, 3) }, narration: `Methodical. The dust is removed. The lace is steamed. You feel, briefly, new.` };
+    } else {
+      const r = Math.random();
+      if (r < 0.6) return { deltas: { hair: -3 }, narration: `She catches the wig with the brush. A small clump comes loose. She blanches and pretends it didn't.`, item: { id: "thin_wig", name: "a thinning patch in the wig", flavor: "above the left ear" } };
+      else return { deltas: { condition: -8 }, narration: `She drops you. Not far. The bisque survives. The shoulder doesn't.`, item: { id: "shoulder_chip", name: "a small chip on the shoulder", flavor: "covered, mostly, by the dress" } };
+    }
+  },
+  thoughts: [
+    "Gloves. Please. Gloves.",
+    "She has done this before.",
+    "If something is going to come off, let it be the dust."
+  ],
+});
+
+addScenario({
+  id: "loved_visited",
+  title: "a fellow collector visits",
+  weight: 4,
+  owners: ["serious", "curio"],
+  setup: d => `Coffee in the good cups. Two women in a sitting room, both wearing reading glasses, both about to discuss bisque.`,
+  roll: d => ({
+    deltas: { reputation: rint(2, 6), provenance: roll(0.4) ? rint(2, 4) : 0 },
+    memory: roll(0.5) ? "Another collector, Mrs. Coltrane, has admired you in person." : null,
+    narration: `She is taken out. She is admired. The visiting collector says she "has the same Heubach but in worse costume." The owner is gracious. The owner is, secretly, pleased.`
+  }),
+  thoughts: ["Be looked at.", "Don't let her touch the wig.", "Mine is the better example."],
+});
+
+// ---- shows ----
+
+addScenario({
+  id: "regional",
+  title: "a regional show",
+  weight: 6,
+  owners: ["serious"],
+  guard: d => d.condition > 50 && d.daysWithOwner >= 2 && (d.lastShowAt === undefined || d.scenarioCount - d.lastShowAt > 3),
+  setup: d => `A folding table, blue cloth, a numbered card. Three judges with clipboards. A row of competitors, none of them, you note, ${d.maker}.`,
+  roll: d => {
+    const score = d.condition * 0.35 + d.costume * 0.15 + d.hair * 0.1 + d.eyes * 0.1 + d.provenance * 0.15 + d.reputation * 0.15;
+    const noise = (Math.random() - 0.5) * 25;
+    const total = score + noise;
+    let ribbon = "none", deltas = { reputation: rint(1, 3) }, line;
+    if (total > 78) { ribbon = "blue"; deltas.reputation = rint(8, 14); deltas.provenance = rint(2, 4); line = `Blue. The judges sign the card. The owner does not breathe out for several seconds.`; }
+    else if (total > 65) { ribbon = "red"; deltas.reputation = rint(4, 8); line = `Red. Second in your category. The owner is satisfied. She tells the story for years anyway.`; }
+    else if (total > 50) { ribbon = "white"; deltas.reputation = rint(2, 5); line = `White. Third. Honorable mention. The owner pretends she expected this. She did not expect this.`; }
+    else { line = `No ribbon. The judges are polite. The competition was, the owner concedes on the drive home, "very strong this year."`; }
+    return {
+      deltas, ribbon,
+      memory: ribbon !== "none" ? `You took a ${ribbon} ribbon at the ${pick(["regional in Cherry Hill","Eastern Regional","Lone Star Regional","Southern Regional","Pacific Regional"])}.` : null,
+      narration: line,
+      flags: { showCompleted: true }
+    };
+  },
+  thoughts: [
+    "Be looked at.",
+    "The judges are wrong, but it does not matter.",
+    "Take what they give. Then take more next year."
+  ],
+});
+
+addScenario({
+  id: "nationals",
+  title: "the UFDC national convention",
+  weight: 0,
+  owners: ["serious"],
+  guard: d => d.ribbons.blue + d.ribbons.red >= 2 && d.condition > 60 && !d.attendedNationals,
+  setup: d => `A hotel ballroom in St. Louis. Or Anaheim. Or Orlando. The convention banner reads UFDC NATIONAL — JUDGED COMPETITION. The owner is wearing a member badge that lists three states she has lived in.`,
+  roll: d => {
+    const score = d.condition * 0.4 + d.costume * 0.15 + d.hair * 0.1 + d.eyes * 0.1 + d.provenance * 0.1 + d.reputation * 0.15;
+    const noise = (Math.random() - 0.5) * 18;
+    const total = score + noise;
+    let ribbon = "none", line, end = null;
+    const deltas = { reputation: rint(8, 14), provenance: rint(4, 8) };
+    if (total > 84) {
+      ribbon = "blue"; deltas.reputation += rint(6, 10);
+      line = `BLUE. First in your category at Nationals. The owner is asked, in a hallway, to be photographed with you. She says yes. She has practiced saying yes for thirty years.`;
+      end = { kind: "blue_ribbon" };
+    } else if (total > 72) {
+      ribbon = "red"; deltas.reputation += rint(4, 7);
+      line = `Red ribbon at Nationals. Second. She says, in the elevator, that she will bring you back. She means it.`;
+    } else if (total > 60) {
+      ribbon = "white";
+      line = `White ribbon at Nationals. The judges are kinder than they need to be. The owner reads the comments on the back of the card three times.`;
+    } else {
+      line = `No ribbon at Nationals. The category was, frankly, brutal. The owner is dignified about it on the way home.`;
+    }
+    return {
+      deltas, ribbon,
+      memory: `You were entered at the UFDC National Convention.`,
+      narration: line,
+      flags: { showCompleted: true, attendedNationals: true },
+      runEnd: end
+    };
+  },
+  thoughts: [
+    "Yes. The blue ribbon. I have earned it.",
+    "Look at me look at me look at me.",
+    "Whatever happens, I am still a Kestner."
+  ],
+});
+
+addScenario({
+  id: "magazine",
+  title: "the magazine feature",
+  weight: 2,
+  owners: ["serious"],
+  guard: d => d.reputation >= 30 && !d.featuredInMagazine,
+  setup: d => `A writer for Antique Doll Collector is on assignment. She wants four hundred words. She has brought a photographer.`,
+  roll: d => ({
+    deltas: { reputation: rint(10, 18), provenance: rint(4, 8) },
+    memory: "You were featured in Antique Doll Collector magazine.",
+    flags: { featuredInMagazine: true },
+    narration: `Two pages. Color plate. The writer gets your mold number right. The owner buys eight copies. She mails three.`
+  }),
+  thoughts: ["Make sure they get the mold number right.", "Front-three-quarter is the angle.", "I have always known I would end up in print."],
+});
+
+// ---- inheritor / casual hazards ----
+
+addScenario({
+  id: "left_on_sofa",
+  title: "the sofa",
+  weight: 7,
+  owners: ["inheritor", "hostess", "hoarder"],
+  setup: d => `She has set you down on a sofa. She has gone to make a sandwich. The sandwich, you sense, will become a phone call.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.6) return { deltas: { costume: -2 }, narration: `She returns. You are slightly askew, but recovered.` };
+    if (r < 0.8) return { deltas: { hair: -4, costume: -3 }, narration: `She forgets. The sofa cushion eats you, briefly. Recovered after dinner.`, item: { id: "cushion_crease", name: "a permanent crease in your dress", flavor: "from the back of the sofa" } };
+    if (r < 0.95) return { deltas: { hair: -8, costume: -8, condition: -3 }, narration: `She forgets for three days. You are eventually retrieved. The wig is uneven. The dress is creased.`, item: { id: "wig_part_lost", name: "a wig that no longer parts the same way", flavor: "from three days face-down on the sofa" } };
+    return { deltas: { condition: -28 }, item: { id: "sat_on", name: "a cracked porcelain hand", flavor: "someone sat on you" }, narration: `Her husband sits down. He realizes too late. The hand will be glued. The hand will not be the same.` };
+  },
+  thoughts: ["Don't forget me.", "It's quiet here.", "If she sits on me, this is over."],
+});
+
+addScenario({
+  id: "in_the_sun",
+  title: "the window",
+  weight: 5,
+  owners: ["inheritor", "hostess", "hoarder", "curio"],
+  setup: d => `She has placed you on a side table near the window. South-facing. The afternoon light is unfiltered.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.5) return { deltas: { costume: -3 }, narration: `Hours of light. The dress fades, very slightly, on the right side.` };
+    if (r < 0.85) return { deltas: { costume: -8, hair: -6 }, item: { id: "sun_fade", name: "permanent sun-fading down one side", flavor: "the side that faced the window" }, narration: `Weeks of light. The fading is permanent. She does not, herself, see it.` };
+    return { deltas: { condition: -10, costume: -12, hair: -8 }, item: { id: "bisque_yellowed", name: "yellowed bisque on one cheek", flavor: "irreversible without restoration" }, narration: `Months of light. The bisque on one cheek has yellowed. The dress is two colors now.` };
+  },
+  thoughts: ["Move me. Just an inch.", "Direct light. She does not understand.", "I have survived suns before."],
+});
+
+// ---- granddaughter / pet hazards ----
+
+addScenario({
+  id: "the_grandchild",
+  title: "the granddaughter",
+  weight: 6,
+  owners: ["inheritor", "hostess"],
+  guard: d => d.owner.archetype.flags.children,
+  setup: d => `A child of perhaps four. She has spotted you across the room. She is approaching at a pace.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.4) return { deltas: {}, narration: `Her grandmother intercepts. The child is allowed to look at you, but not to hold you. There is brief crying.` };
+    if (r < 0.75) return { deltas: { hair: -8, costume: -5 }, narration: `She holds you for forty minutes. Your hair is, after, in a configuration it has never been in.`, item: { id: "kid_hairdo", name: "a wig the child rearranged", flavor: "set, somehow, with apple juice" } };
+    if (r < 0.95) return { deltas: { condition: -15, eyes: -10 }, item: { id: "fingered_eye", name: "a sleep eye that no longer sleeps", flavor: "a small finger pressed too hard" }, narration: `She presses a finger into your eye. Repeatedly. The mechanism, when she leaves, no longer closes.` };
+    return { deltas: { condition: -100 }, runEnd: { kind: "destroyed", how: "the granddaughter dropped you on a hardwood floor" }, narration: `She drops you. The hardwood is unforgiving. The bisque is in three pieces. The largest piece is your forehead.` };
+  },
+  thoughts: ["Just look. Please just look.", "I have survived children before.", "If she touches the eye, I am undone."],
+});
+
+addScenario({
+  id: "the_dog",
+  title: "the dog",
+  weight: 5,
+  owners: ["hostess", "hoarder", "inheritor"],
+  guard: d => d.owner.archetype.flags.pets,
+  setup: d => `The dog is in the room. The dog is large. The dog has noticed you.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.5) return { deltas: {}, narration: `He smells you. He decides you are not food. He leaves.` };
+    if (r < 0.8) return { deltas: { condition: -6, costume: -10, hair: -6 }, item: { id: "dog_chew", name: "tooth marks on one foot", flavor: "the dog took the shoe with him" }, narration: `He takes you in his mouth and runs. You are recovered, eventually, from beneath the bed. One shoe is gone forever.` };
+    return { deltas: { condition: -100 }, runEnd: { kind: "destroyed", how: "the dog" }, narration: `He chews. He chews thoroughly. There is, at the end, very little of your face.` };
+  },
+  thoughts: ["He is stupid. Stupid is survivable.", "If he bites, this is over.", "I have outlived three dogs already."],
+});
+
+addScenario({
+  id: "the_cat",
+  title: "the cat",
+  weight: 4,
+  owners: ["hostess", "hoarder"],
+  guard: d => d.owner.archetype.flags.pets,
+  setup: d => `The cat is on the shelf. You are also on the shelf. You did not know cats could climb this high.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.55) return { deltas: { hair: -3 }, narration: `The cat sniffs your wig and disapproves of it. She leaves.` };
+    if (r < 0.85) return { deltas: { condition: -10, costume: -5 }, item: { id: "feline_acquaintance", name: "puncture marks across the bodice", flavor: "from a cat who decided you were prey" }, narration: `She bats you off the shelf. You land on a rug. The bodice has been punctured in four places.` };
+    return { deltas: { condition: -100 }, runEnd: { kind: "destroyed", how: "the cat" }, narration: `She knocks you off the shelf onto tile. The pieces are too small to glue. She watches them, briefly, and then walks away.` };
+  },
+  thoughts: ["Don't look at me.", "I am not your toy.", "If she swipes, I am gone."],
+});
+
+addScenario({
+  id: "the_pool",
+  title: "the pool party",
+  weight: 3,
+  owners: ["hostess"],
+  guard: d => d.owner.archetype.flags.pool,
+  setup: d => `The patio door is open. The grandchildren are by the pool. The owner has, against your every wish, brought you outside to "show the family."`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.55) return { deltas: { costume: -3 }, narration: `She holds you. Nobody touches you. You are returned to the cabinet. You smell of chlorine for a week.` };
+    if (r < 0.85) return { deltas: { condition: -12, hair: -8, costume: -15 }, item: { id: "pool_splash", name: "chlorine-streaked costume and frizzed hair", flavor: "from a splash you could not avoid" }, narration: `A splash. You are wet. The wig is forever changed. The costume is dye-streaked.` };
+    return { deltas: { condition: -100 }, runEnd: { kind: "destroyed", how: "the pool" }, narration: `A child knocks you in. You sink. By the time she fishes you out, the bisque has separated from the cloth body, the wig has unmoored, and the eyes — the eyes float separately.` };
+  },
+  thoughts: ["Indoors. Take me indoors.", "If a child touches the table, I am over.", "I am one hundred years old. Do not put me near a pool."],
+});
+
+addScenario({
+  id: "plumber",
+  title: "the plumber",
+  weight: 3,
+  owners: ["inheritor", "hostess", "hoarder"],
+  setup: d => `A pipe upstairs has burst. There is a great deal of water. The water is moving toward the room you are in.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.45) return { deltas: {}, narration: `The water stops at the rug. The rug is ruined. You are not.` };
+    if (r < 0.85) return { deltas: { condition: -14, hair: -10, costume: -25 }, item: { id: "water_stained", name: "permanent water staining at the hem", flavor: "from the pipe in the upstairs bathroom" }, narration: `You are damp. The cloth body wicks. The hem is permanently darkened.` };
+    return { deltas: { condition: -100 }, runEnd: { kind: "destroyed", how: "water damage" }, narration: `You are submerged for two days. The cloth body rots. The bisque survives the bath but the rest of you does not.` };
+  },
+  thoughts: ["Pick me up. Pick me up.", "Composition is, as a rule, water-soluble.", "I have weathered worse."],
+});
+
+// ---- hoarder-specific ----
+
+addScenario({
+  id: "buried_in_mail",
+  title: "the mail pile",
+  weight: 7,
+  owners: ["hoarder"],
+  setup: d => `She has set you down on the sofa. She has set the day's mail on top of you. She has set yesterday's mail on top of that.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.55) return { deltas: { hair: -3, costume: -3 }, narration: `Three weeks. You are face-down. There is a Pottery Barn catalog touching your bonnet.` };
+    if (r < 0.9) return { deltas: { condition: -6, hair: -8, costume: -10 }, item: { id: "mail_crease", name: "a permanent crease across the chest", flavor: "from a stack of QVC catalogs" }, narration: `Months. The catalogs press a permanent crease across your chest. The wig is matted on one side.` };
+    return { deltas: { condition: -28, hair: -15, costume: -22 }, item: { id: "mouse_evidence", name: "mouse damage at the hem", flavor: "discovered the day she finally moved the pile" }, narration: `Two seasons. When she moves the pile, you have been visited. There is mouse damage. There is a smell.` };
+  },
+  thoughts: ["I am face-down on a sofa under a stack of mail.", "There is, somewhere, a cat.", "This is a temporary arrangement. (It is not.)"],
+});
+
+addScenario({
+  id: "fallen_behind_furniture",
+  title: "behind the furniture",
+  weight: 4,
+  owners: ["hoarder", "hostess"],
+  setup: d => `Something has knocked you over. You have rolled. You have come to rest in a position that has no name in English.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.5) return { deltas: { hair: -4 }, narration: `She finds you within the hour. Brushes you off. Returns you. Apologizes.` };
+    if (r < 0.85) return { deltas: { condition: -6, hair: -10, costume: -10 }, item: { id: "dust_permanent", name: "dust permanently embedded in the lace", flavor: "the lace at the collar will never recover" }, narration: `Two months. You are eventually retrieved during a vacuuming. The lace at your collar will never be white again.` };
+    return { deltas: { condition: -20, hair: -20 }, item: { id: "yellowed_face", name: "a face yellowed unevenly", flavor: "from a long unventilated stretch behind a bookcase" }, narration: `A long time. When you are found, your face is two colors. The bookcase had been unventilated.` };
+  },
+  thoughts: ["Find me. Find me.", "It is quiet here.", "The dust is, on its own, restful."],
+});
+
+// ---- restorer ----
+
+addScenario({
+  id: "restoration",
+  title: "the restoration",
+  weight: 8,
+  owners: ["restorer"],
+  setup: d => `A bench. Bright lights. A wooden stand. A box labeled REPLACEMENT EYES, sorted by size, color, and decade.`,
+  roll: d => {
+    const repairs = [];
+    const deltas = {};
+    if (d.condition < 60) { deltas.condition = rint(15, 30); repairs.push("crack stabilized"); }
+    if (d.hair < 50) { deltas.hair = rint(15, 30); repairs.push("wig replaced"); }
+    if (d.costume < 50) { deltas.costume = rint(10, 25); repairs.push("costume freshened"); }
+    if (d.eyes < 50) { deltas.eyes = rint(10, 25); repairs.push("eye mechanism repaired"); }
+    if (repairs.length === 0) repairs.push("light cleaning");
+    deltas.condition = (deltas.condition || 0);
+    // restoration costs originality / provenance — every repair is a small lie about you
+    deltas.provenance = -rint(2, 6);
+    const item = { id: "restoration_" + d.scenarioCount, name: `restoration: ${repairs.join(", ")}`, flavor: "documented, but a deduction at any future judging" };
+    return { deltas, item, memory: `You were restored: ${repairs.join(", ")}.`, narration: `She works for two days. You leave looking, in some respects, better than when you arrived. In other respects you are no longer entirely yourself.` };
+  },
+  thoughts: ["Be gentle.", "Replace nothing you do not have to.", "I would rather be cracked than counterfeit."],
+});
+
+// ---- transitions out ----
+
+addScenario({
+  id: "owner_dies",
+  title: "the funeral",
+  weight: 3,
+  guard: d => d.daysWithOwner >= 4 && !d.owner.archetype.flags.interim,
+  setup: d => `Black clothes. Casseroles. The owner's grown daughter, in the dining room, deciding what to do with you.`,
+  roll: d => ({
+    deltas: { provenance: rint(2, 5) },
+    memory: `${d.owner.label} died; you were placed in a labeled box.`,
+    changeOwner: true,
+    ownerForce: pick(["estate", "estate", "inheritor"]),
+    narration: `The decision is delayed. You are placed in a labeled box marked DOLLS — KEEP for the time being.`
+  }),
+  thoughts: ["She was, on balance, a good owner.", "What is to become of me.", "I have outlived four of these now."],
+});
+
+addScenario({
+  id: "donated",
+  title: "the donation pile",
+  weight: 3,
+  owners: ["inheritor", "hoarder", "estate"],
+  setup: d => `A brown paper bag labeled GOODWILL. You are at the top of the bag. Beneath you, a sweater set.`,
+  roll: d => {
+    const newOwner = pick(["dealer", "curio", "hoarder"]);
+    return {
+      deltas: { provenance: -rint(4, 10), reputation: -rint(3, 6) },
+      memory: "You spent a stretch in the back room of a charity shop.",
+      changeOwner: true, ownerForce: newOwner,
+      narration: `You spend three weeks in the back room of a charity shop. A volunteer recognizes your maker's mark and pulls you off the shelf before you can be priced at four dollars. The volunteer takes you home.`
+    };
+  },
+  thoughts: ["Find me. A good one. Soon.", "I am worth more than a sweater.", "It is what it is."],
+});
+
+addScenario({
+  id: "consigned",
+  title: "the consignment",
+  weight: 3,
+  owners: ["inheritor", "hostess", "curio", "estate"],
+  setup: d => `A consignment shop. A glass case in the front room. A handwritten card: ANTIQUE DOLL — INQUIRE.`,
+  roll: d => ({
+    deltas: { provenance: rint(1, 4) },
+    changeOwner: true,
+    ownerForce: pick(["dealer", "curio", "serious"]),
+    narration: `You are looked at by several people, and bought, eventually, by one of them.`
+  }),
+  thoughts: ["Don't end up at a hoarder.", "A serious one. Please.", "Whoever buys me, I will manage."],
+});
+
+addScenario({
+  id: "estate_sale",
+  title: "the estate sale",
+  weight: 4,
+  owners: ["estate", "hoarder"],
+  setup: d => `A house emptied onto folding tables. A driveway full of strangers. A small handwritten card: PORCELAIN DOLL.`,
+  roll: d => {
+    const r = Math.random();
+    let force, line;
+    if (r < 0.25) { force = "serious"; line = `A UFDC member happens by. She turns you over. She sees the marks. She does not haggle.`; }
+    else if (r < 0.55) { force = "curio"; line = `A retired schoolteacher takes you home in a paper bag.`; }
+    else if (r < 0.8) { force = "inheritor"; line = `A woman who collects "general antiques" buys you for fifteen dollars.`; }
+    else { force = "hoarder"; line = `A woman with eight grocery bags already in her car adds you to the bags.`; }
+    return { deltas: { provenance: -rint(2, 5) }, changeOwner: true, ownerForce: force, narration: line };
+  },
+  thoughts: ["Pick me up. Read the marks.", "Anyone but the one with the bags.", "Wherever I go, I will adjust."],
+});
+
+// ---- rare unexpected swaps ----
+
+addScenario({
+  id: "house_fire",
+  title: "the smoke alarm",
+  weight: 1,
+  guard: d => d.daysWithOwner >= 1 && !d.owner.archetype.flags.interim,
+  setup: d => `Two AM. Smoke alarms. Fire trucks in the street. By dawn there are tarps on the roof and a man with a clipboard from the insurance company.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.5) {
+      return { deltas: { condition: -8, hair: -8, costume: -15 }, item: { id: "smoke_smell", name: "a permanent faint smoke smell", flavor: "from a fire she does not like to discuss" }, narration: `The fire was contained to the kitchen. You smell of smoke for years. She keeps you anyway.` };
+    } else {
+      return { deltas: { condition: -10, costume: -12 }, item: { id: "smoke_smell", name: "a permanent faint smoke smell", flavor: "from the fire that ended her collection" }, changeOwner: true, ownerForce: pick(["dealer", "estate", "hoarder"]), narration: `The damage is too much. She moves into a smaller place. The collection is liquidated. You are wrapped, hastily, in newsprint.` };
+    }
+  },
+  thoughts: ["Take me. First. Take me first.", "I have survived worse smoke.", "If she leaves me here, I burn."],
+});
+
+addScenario({
+  id: "burglary",
+  title: "the burglary",
+  weight: 1,
+  guard: d => d.daysWithOwner >= 2 && (d.reputation > 18 || d.provenance > 28) && !d.owner.archetype.flags.interim,
+  setup: d => `A back window, broken. Police in the front room with notebooks. A list is being made of what is missing.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.35) {
+      return { deltas: {}, narration: `They did not see you. You were behind a Hummel. The Hummel, regrettably, was taken.` };
+    } else if (r < 0.85) {
+      return { deltas: { provenance: -rint(8, 14), reputation: -rint(2, 5) }, item: { id: "stolen_record", name: "a stolen-property record on file", flavor: "the insurance has been paid; the listing follows you" }, changeOwner: true, ownerForce: pick(["dealer", "hoarder", "inheritor"]), narration: `You are taken. Sold, not very well, in another state. The buyer either knows or does not.` };
+    } else {
+      return { deltas: { condition: -6, provenance: rint(3, 6) }, memory: "You were stolen and, after some months, recovered.", narration: `Eight months later, the police call. You are returned in a paper bag. The collector cries on the doorstep.` };
+    }
+  },
+  thoughts: ["I am not portable.", "Whoever takes me, I will be found.", "Mind the bisque on the way out."],
+});
+
+addScenario({
+  id: "new_husband",
+  title: "the new husband",
+  weight: 1,
+  guard: d => d.daysWithOwner >= 2 && ["inheritor","hostess","curio"].includes(d.owner.archetype.id),
+  setup: d => `She has remarried. The new husband does not, he says, "go in for the dolls." He has plans, he says, for "downsizing."`,
+  roll: d => ({
+    deltas: { provenance: -rint(2, 5) },
+    changeOwner: true,
+    ownerForce: pick(["dealer", "estate", "curio", "hoarder"]),
+    narration: `Half the collection goes to a Saturday consignment. You are in the half that goes.`,
+    memory: "Her new husband convinced her to part with you."
+  }),
+  thoughts: ["He does not know what I am.", "She knew, once.", "Whoever I end up with, I will adjust."],
+});
+
+addScenario({
+  id: "the_gift",
+  title: "the gift",
+  weight: 1,
+  guard: d => d.daysWithOwner >= 2 && ["serious","curio"].includes(d.owner.archetype.id),
+  setup: d => `A friend, a fellow collector, has done her a substantial favor. She has decided, in gratitude, to part with one piece.`,
+  roll: d => ({
+    deltas: { provenance: rint(3, 6), reputation: rint(2, 5) },
+    changeOwner: true,
+    ownerForce: pick(["serious", "curio"]),
+    memory: "You were given as a gift between collectors.",
+    narration: `She wraps you in tissue. She delivers you in person. There is a small ceremony of it.`
+  }),
+  thoughts: ["I am being honored.", "Wherever I go, the marks travel with me.", "She will, occasionally, miss me."],
+});
+
+// ---- generic stable scenario for low-event days ----
+
+addScenario({
+  id: "uneventful",
+  title: "an uneventful afternoon",
+  weight: 4,
+  setup: d => `Nothing happens. The radiator clicks. A truck goes past, then another truck.`,
+  roll: d => ({
+    deltas: { reputation: roll(0.2) ? 1 : 0 },
+    narration: `You watch the room. The radiator clicks. The light moves across the wall once. You are, for a moment, simply yourself.`
+  }),
+  thoughts: ["The light is correct.", "I am one hundred and four years old.", "Nothing is required of me."],
+});
+
+// ---------- state ----------
+
+const state = {
+  doll: null,
+  ended: false,
+};
+
+// ---------- DOM ----------
+
+const $idCard = document.getElementById('id-card');
+const $vitals = document.getElementById('vitals');
+const $status = document.getElementById('status');
+const $ribbons = document.getElementById('ribbons');
+const $log = document.getElementById('log');
+const $controls = document.getElementById('controls');
+const $items = document.getElementById('items');
+const $memories = document.getElementById('memories');
+
+// ---------- rendering ----------
+
+function bar(value) {
+  const v = clamp(value, 0, 100);
+  const cls = v < 25 ? 'low' : v < 55 ? 'mid' : '';
+  return `<span class="bar ${cls}"><span style="width:${v}%"></span></span><span class="num">${Math.round(v)}</span>`;
+}
+
+function renderIdCard() {
+  if (!state.doll) { $idCard.innerHTML = ''; return; }
+  const d = state.doll;
+  $idCard.innerHTML = `
+    <div class="maker">${d.maker} ${d.mold}</div>
+    <div class="meta">${d.year} · ${d.category} · ${d.height}" · reg. ${d.regNumber}</div>
+  `;
+}
+
+function renderVitals() {
+  if (!state.doll) { $vitals.innerHTML = ''; return; }
+  const d = state.doll;
+  $vitals.innerHTML = `
+    <div class="row"><span class="label">Condition</span>${bar(d.condition)}</div>
+    <div class="row"><span class="label">Costume</span>${bar(d.costume)}</div>
+    <div class="row"><span class="label">Hair</span>${bar(d.hair)}</div>
+    <div class="row"><span class="label">Eyes</span>${bar(d.eyes)}</div>
+    <div class="row"><span class="label">Provenance</span>${bar(d.provenance)}</div>
+    <div class="row"><span class="label">Reputation</span>${bar(d.reputation)}</div>
+  `;
+}
+
+function renderStatus() {
+  if (!state.doll) { $status.innerHTML = ''; return; }
+  const d = state.doll;
+  $status.innerHTML = `
+    <div><span class="label">Owner</span> <strong>${d.owner.label}</strong></div>
+    <div><span class="label">In her collection</span> <strong>${d.daysWithOwner} ${d.daysWithOwner === 1 ? 'event' : 'events'}</strong></div>
+    <div><span class="label">Owners had</span> <strong>${d.ownerCount}</strong></div>
+  `;
+}
+
+function renderRibbons() {
+  if (!state.doll) { $ribbons.innerHTML = ''; return; }
+  const r = state.doll.ribbons;
+  const total = r.blue + r.red + r.white;
+  let html = `<span class="label">Ribbons:</span> `;
+  if (total === 0) {
+    html += `<span class="none">none yet</span>`;
+  } else {
+    if (r.blue) html += `<span class="pill blue">${r.blue} blue</span>`;
+    if (r.red) html += `<span class="pill red">${r.red} red</span>`;
+    if (r.white) html += `<span class="pill white">${r.white} white</span>`;
+  }
+  if (state.doll.attendedNationals) html += `<span class="pill gold">attended Nationals</span>`;
+  $ribbons.innerHTML = html;
+}
+
+function renderItems() {
+  if (!state.doll || state.doll.items.length === 0) {
+    $items.innerHTML = '<div class="empty">No notable damage. Yet.</div>';
+    return;
+  }
+  $items.innerHTML = state.doll.items.map(i =>
+    `<div><span class="ix-name">${i.name}</span> <span class="ix-flavor">— ${i.flavor}</span></div>`
+  ).join('');
+}
+
+function renderMemories() {
+  if (!state.doll || state.doll.memories.length === 0) {
+    $memories.innerHTML = '<div class="empty">Nothing on record yet.</div>';
+    return;
+  }
+  $memories.innerHTML = state.doll.memories.slice().reverse().map(m =>
+    `<div>· ${m}</div>`
+  ).join('');
+}
+
+function renderAll() {
+  renderIdCard();
+  renderVitals();
+  renderStatus();
+  renderRibbons();
+  renderItems();
+  renderMemories();
+}
+
+function logHTML(html) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = html;
+  while (wrap.firstChild) $log.appendChild(wrap.firstChild);
+  $log.scrollTop = $log.scrollHeight;
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+
+function logSceneTitle(t) { logHTML(`<p class="scene-title">— ${t} —</p>`); }
+function logNarrator(text) { logHTML(`<p class="narrator">${text}</p>`); }
+function logDoll(text) { logHTML(`<p class="doll">${text}</p>`); }
+function logSystem(html) { logHTML(`<p class="system">${html}</p>`); }
+
+// ---------- doll factory ----------
+
+function newDoll() {
+  const tpl = pick(DOLL_TEMPLATES);
+  const year = rint(tpl.yearRange[0], tpl.yearRange[1]);
+  const mold = pick(tpl.molds);
+  const reg = pick(REGISTRY_PREFIX) + "-" + rint(1000, 9999);
+  // base stats vary by category
+  let cond = rint(70, 92);
+  let costume = rint(50, 85);
+  let hair = rint(55, 88);
+  let eyes = rint(75, 95);
+  if (tpl.category === "Composition") { cond -= 8; costume -= 5; }   // composition crazes
+  if (tpl.category === "Cloth") { eyes = rint(60, 80); }              // painted eyes
+  if (tpl.category === "French Bébé") { cond += 3; costume += 5; }    // generally finer
+  const d = {
+    maker: tpl.maker,
+    country: tpl.country,
+    category: tpl.category,
+    mold,
+    year,
+    height: rint(14, 32),
+    regNumber: reg,
+    condition: clamp(cond, 0, 100),
+    costume: clamp(costume, 0, 100),
+    hair: clamp(hair, 0, 100),
+    eyes: clamp(eyes, 0, 100),
+    provenance: rint(8, 25),
+    reputation: rint(0, 8),
+    ribbons: { blue: 0, red: 0, white: 0 },
+    attendedNationals: false,
+    featuredInMagazine: false,
+    items: [],
+    memories: [],
+    owner: null,
+    ownerCount: 0,
+    daysWithOwner: 0,
+    targetDuration: 0,
+    scenarioCount: 0,
+    lastShowAt: undefined,
+    pendingOutcome: null,
+    ended: false,
+  };
+  giveOwner(d, "first");
+  return d;
+}
+
+function giveOwner(d, mode, force) {
+  d.ownerCount += 1;
+  let archetype;
+  if (force) {
+    archetype = ownerById(force) || pick(OWNER_TYPES);
+  } else if (mode === "first") {
+    // first owner skews toward the more interesting initial states
+    const first = OWNER_TYPES.filter(o => !o.flags.interim);
+    const total = first.reduce((a, o) => a + o.weight, 0);
+    let r = Math.random() * total;
+    for (const o of first) { r -= o.weight; if (r <= 0) { archetype = o; break; } }
+    if (!archetype) archetype = first[0];
+  } else {
+    const total = OWNER_TYPES.reduce((a, o) => a + o.weight, 0);
+    let r = Math.random() * total;
+    for (const o of OWNER_TYPES) { r -= o.weight; if (r <= 0) { archetype = o; break; } }
+    if (!archetype) archetype = OWNER_TYPES[0];
+  }
+  d.owner = {
+    archetype,
+    label: archetype.label,
+    daysWith: 0,
+  };
+  d.daysWithOwner = 0;
+  d.targetDuration = rint(archetype.duration[0], archetype.duration[1]);
+}
+
+// ---------- scenario selection ----------
+
+function pickScenario(d) {
+  // forced terminal
+  const nationals = SCENARIOS.find(s => s.id === "nationals");
+  if (nationals && (!nationals.guard || nationals.guard(d)) && roll(0.5)) {
+    return nationals;
+  }
+  // forced transition if owner duration exceeded
+  if (d.daysWithOwner >= d.targetDuration) {
+    const transitions = SCENARIOS.filter(s =>
+      ["owner_dies", "donated", "consigned", "estate_sale", "auctioned", "inherited", "shipped"].includes(s.id) &&
+      (!s.owners || s.owners.includes(d.owner.archetype.id)) &&
+      (!s.guard || s.guard(d))
+    );
+    if (transitions.length) {
+      const total = transitions.reduce((a, s) => a + (s.weight || 1), 0);
+      let r = Math.random() * total;
+      for (const s of transitions) { r -= (s.weight || 1); if (r <= 0) return s; }
+    }
+  }
+  // ordinary
+  const candidates = SCENARIOS.filter(s => {
+    if (s.weight === 0) return false; // forced-only
+    if (s.owners && !s.owners.includes(d.owner.archetype.id)) return false;
+    if (s.guard && !s.guard(d)) return false;
+    return true;
+  });
+  if (candidates.length === 0) {
+    return SCENARIOS.find(s => s.id === "uneventful") || SCENARIOS[0];
+  }
+  const total = candidates.reduce((a, s) => a + (s.weight || 1), 0);
+  let r = Math.random() * total;
+  for (const s of candidates) {
+    r -= (s.weight || 1);
+    if (r <= 0) return s;
+  }
+  return candidates[candidates.length - 1];
+}
+
+// ---------- core loop ----------
+
+function startGame() {
+  state.doll = newDoll();
+  state.ended = false;
+  $log.innerHTML = "";
+  const d = state.doll;
+  logSystem(`<strong>A new doll enters the record.</strong>`);
+  logNarrator(`You are <strong>${d.maker} ${d.mold}</strong>, made in ${d.country} in ${d.year}. ${d.height} inches. Category: ${d.category}. Registry: ${d.regNumber}.`);
+  logNarrator(`Your first owner is <strong>${d.owner.label}</strong>. ${d.owner.archetype.desc}`);
+  renderAll();
+  nextScenario();
+}
+
+function nextScenario() {
+  const d = state.doll;
+  if (d.ended) return;
+
+  d.daysWithOwner += 1;
+  d.scenarioCount += 1;
+
+  const sc = pickScenario(d);
+  runScenario(sc);
+}
+
+function runScenario(sc) {
+  const d = state.doll;
+  logSceneTitle(sc.title);
+  logNarrator(sc.setup(d));
+
+  // Roll outcome NOW. The thoughts are pure flavor.
+  const outcome = sc.roll(d);
+  d.pendingOutcome = { sc, outcome };
+
+  $controls.innerHTML = '';
+  const prompt = document.createElement('p');
+  prompt.className = 'prompt';
+  prompt.textContent = "(you can think one of these — it will not matter)";
+  $controls.appendChild(prompt);
+
+  sc.thoughts.forEach(text => {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.onclick = () => {
+      $controls.innerHTML = '';
+      logDoll(text);
+      applyOutcome(d.pendingOutcome.sc, d.pendingOutcome.outcome);
+    };
+    $controls.appendChild(b);
+  });
+}
+
+function applyOutcome(sc, outcome) {
+  const d = state.doll;
+  d.pendingOutcome = null;
+
+  // narration
+  if (outcome.narration) logNarrator(outcome.narration);
+
+  // deltas
+  const applied = {};
+  const dlt = outcome.deltas || {};
+  for (const k in dlt) {
+    const v = dlt[k];
+    if (typeof d[k] === "number") {
+      d[k] = clamp(d[k] + v, 0, 100);
+      applied[k] = v;
+    }
+  }
+  const reports = [];
+  for (const k in applied) {
+    const v = applied[k];
+    if (v === 0) continue;
+    const cls = v > 0 ? 'stat-up' : 'stat-dn';
+    const sign = v > 0 ? '+' : '';
+    reports.push(`<span class="${cls}">${sign}${v} ${k}</span>`);
+  }
+
+  // ribbon
+  if (outcome.ribbon && outcome.ribbon !== "none") {
+    d.ribbons[outcome.ribbon] = (d.ribbons[outcome.ribbon] || 0) + 1;
+    const cls = outcome.ribbon === "blue" ? "ribbon-blue" : "ribbon-red";
+    reports.push(`<span class="${cls}">${outcome.ribbon} ribbon</span>`);
+  }
+
+  if (reports.length) logSystem(reports.join(' &middot; '));
+
+  // item
+  if (outcome.item) {
+    if (!d.items.some(i => i.id === outcome.item.id)) {
+      d.items.push(outcome.item);
+      logSystem(`gained: <span class="item-acq">${outcome.item.name}</span>`);
+    }
+  }
+
+  // memory
+  if (outcome.memory) {
+    d.memories.push(outcome.memory);
+  }
+
+  // flags
+  if (outcome.flags) {
+    if (outcome.flags.showCompleted) d.lastShowAt = d.scenarioCount;
+    if (outcome.flags.attendedNationals) d.attendedNationals = true;
+    if (outcome.flags.featuredInMagazine) d.featuredInMagazine = true;
+  }
+
+  // owner change
+  if (outcome.changeOwner) {
+    logSystem(`<strong>— a new owner —</strong>`);
+    giveOwner(d, "next", outcome.ownerForce);
+    logNarrator(`Your new owner: <strong>${d.owner.label}</strong>. ${d.owner.archetype.desc}`);
+  }
+
+  renderAll();
+
+  // run end checks
+  if (outcome.runEnd) {
+    return endRun(outcome.runEnd);
+  }
+  if (d.condition <= 0) {
+    return endRun({ kind: "destroyed", how: "accumulated damage" });
+  }
+
+  showContinue();
+}
+
+function showContinue() {
+  $controls.innerHTML = '';
+  const b = document.createElement('button');
+  b.className = 'primary';
+  b.textContent = "(time passes)";
+  b.onclick = () => nextScenario();
+  $controls.appendChild(b);
+}
+
+function endRun(end) {
+  state.doll.ended = true;
+  state.ended = true;
+  $controls.innerHTML = '';
+  const d = state.doll;
+
+  let verdict, epitaph, isWin = false;
+  if (end.kind === "blue_ribbon") {
+    isWin = true;
+    verdict = "BLUE RIBBON, NATIONALS";
+    epitaph = `${d.maker} ${d.mold} (${d.year}) wins her category at the UFDC National Convention. ${d.ownerCount} owners, ${d.ribbons.red + d.ribbons.white} earlier ribbons, ${d.items.length} marks accumulated along the way. She is, in the photograph that runs in the next month's bulletin, immaculate.`;
+  } else if (end.kind === "destroyed") {
+    verdict = "Beyond repair.";
+    epitaph = `${d.maker} ${d.mold} (${d.year}) — destroyed by ${end.how}. ${d.ownerCount} owners. ${d.ribbons.blue} blue, ${d.ribbons.red} red, ${d.ribbons.white} white. She made it ${d.scenarioCount} events.`;
+  } else {
+    verdict = "End.";
+    epitaph = `${d.maker} ${d.mold} (${d.year}). ${d.ownerCount} owners. ${d.scenarioCount} events.`;
+  }
+
+  const totals = `Cond ${Math.round(d.condition)} · Costume ${Math.round(d.costume)} · Hair ${Math.round(d.hair)} · Eyes ${Math.round(d.eyes)} · Prov ${Math.round(d.provenance)} · Rep ${Math.round(d.reputation)}`;
+
+  logHTML(`
+    <div class="end-screen">
+      <p class="verdict ${isWin ? 'win' : ''}">${verdict}</p>
+      <p class="epitaph">${epitaph}</p>
+      <p class="totals">${totals}</p>
+    </div>
+  `);
+
+  const b = document.createElement('button');
+  b.className = 'primary';
+  b.textContent = "begin again";
+  b.onclick = startGame;
+  $controls.appendChild(b);
+}
+
+// ---------- boot ----------
+
+startGame();
+</script>
+</body>
+</html>
