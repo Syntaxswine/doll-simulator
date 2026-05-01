@@ -262,6 +262,9 @@
   }
   .item-list .ix-name { color: var(--ink); }
   .item-list .ix-flavor { color: var(--muted); font-size: 0.92em; }
+  .item-list .ix-positive .ix-name { color: var(--leaf); }
+  .item-list .ix-positive::before { content: "✦ "; color: var(--leaf); }
+  .item-list .ix-damage::before { content: "· "; color: var(--ribbon); }
   .memory-list > div { color: var(--muted); font-style: italic; }
   .empty { color: var(--muted); font-style: italic; padding: 0.3em 0; }
   .end-screen { text-align: center; padding: 1.5em 0 0.5em; }
@@ -394,7 +397,7 @@
     </div>
   </div>
 
-  <h2>Damage and replacements</h2>
+  <h2>Marks and documentation</h2>
   <div id="items" class="item-list"></div>
 
   <h2>What is known about you</h2>
@@ -939,8 +942,10 @@ function damageRoll(branches) {
 }
 
 // Item factory for stackable items (multiple firings of the same scenario).
-function uniqueItem(d, { prefix, name, flavor }) {
-  return { id: prefix + "_" + d.scenarioCount, name, flavor };
+// Pass-through of positive/any other fields via spread.
+function uniqueItem(d, base) {
+  const { prefix, ...rest } = base;
+  return { id: prefix + "_" + d.scenarioCount, ...rest };
 }
 
 // ---- arrival / transition ----
@@ -1021,8 +1026,11 @@ addScenario({
   setup: d => `An appraiser arrives. A loupe. A small notebook. He turns you upside down to read your maker's marks.`,
   roll: d => {
     const r = Math.random();
-    if (r < 0.65) {
+    if (r < 0.5) {
       return { deltas: { provenance: rint(6, 12), reputation: rint(2, 5) }, memory: pick(["Your marks were verified by an appraiser who used to consult for Christie's.", "An appraiser confirmed your year, give or take."]), narration: `He confirms the maker. He confirms the year, more or less. The figure he writes down is more than the owner paid.`, yearsElapsed: rint(0, 1) };
+    } else if (r < 0.7) {
+      // strong appraisal — formal certificate
+      return { deltas: { provenance: rint(10, 16), reputation: rint(3, 6) }, item: { id: "appraisal_cert", name: "a written certificate of authenticity", flavor: "embossed; signed; on file with the insurer", positive: true }, memory: "A formal certificate of authenticity was issued.", narration: `He writes a formal letter. Embossed letterhead. He says, in writing, what you are. The owner files a copy with the insurance company.`, yearsElapsed: rint(0, 1) };
     } else if (r < 0.9) {
       return { deltas: { provenance: rint(2, 5) }, narration: `He hesitates. He says "later examples." The owner does not, visibly, care; she has had you appraised.`, yearsElapsed: rint(0, 1) };
     } else {
@@ -1044,10 +1052,13 @@ addScenario({
   setup: d => `A black backdrop. A ring light. The owner's daughter, who has the better camera, is here for the afternoon.`,
   roll: d => {
     const r = Math.random();
-    if (r < 0.7) {
+    if (r < 0.5) {
       return { deltas: { reputation: rint(3, 6) }, memory: "You were photographed for the household catalog.", narration: `The photographs are crisp. Three angles. Your maker's mark documented in macro. The catalog grows by a page.`, yearsElapsed: rint(0, 1) };
-    } else if (r < 0.95) {
-      return { deltas: { reputation: rint(6, 12), provenance: rint(2, 4) }, memory: "You appeared in a doll-collector publication.", narration: `One of the photographs ends up in a hobbyist publication. A short caption. Your maker, your mold, your owner's first name.`, yearsElapsed: rint(0, 1) };
+    } else if (r < 0.75) {
+      // formal portrait kept in archives
+      return { deltas: { reputation: rint(4, 8), provenance: rint(2, 5) }, item: d => uniqueItem(d, { prefix: "portrait", name: "a formal portrait photograph", flavor: "front three-quarter, archival paper, signed and dated on the back", positive: true }), memory: "A formal portrait of you was filed in the household archives.", narration: `The keeper of the photographs is — for once — her daughter, who is good at this. The formal portrait is signed, dated, and filed.`, yearsElapsed: rint(0, 1) };
+    } else if (r < 0.92) {
+      return { deltas: { reputation: rint(6, 12), provenance: rint(2, 4) }, item: { id: "magazine_photo", name: "your photograph in a doll-collector magazine", flavor: "a single page; your maker, your mold, your owner's first name", positive: true }, memory: "You appeared in a doll-collector publication.", narration: `One of the photographs ends up in a hobbyist publication. A short caption. Your maker, your mold, your owner's first name.`, yearsElapsed: rint(0, 1) };
     } else {
       return { deltas: { hair: -4 }, wardrobeChange: { bonnet: "damaged" }, narration: `She poses you too aggressively. The hair shifts. The ${pieceLabel(d, 'bonnet')} tilts permanently. She does not, on review, like the photographs.`, yearsElapsed: rint(0, 1) };
     }
@@ -1129,13 +1140,32 @@ addScenario({
     const ceiling = 78 - (5 - d.desirability) * 4;
     const total = score + noise;
     let ribbon = "none", deltas = { reputation: rint(1, 3) }, line;
-    if (total > ceiling) { ribbon = "blue"; deltas.reputation = rint(8, 14); deltas.provenance = rint(2, 4); line = `Blue. The judges sign the card. The owner does not breathe out for several seconds.`; }
-    else if (total > ceiling - 13) { ribbon = "red"; deltas.reputation = rint(4, 8); line = `Red. Second in your category. The owner is satisfied. She tells the story for years anyway.`; }
-    else if (total > ceiling - 28) { ribbon = "white"; deltas.reputation = rint(2, 5); line = `White. Third. Honorable mention. The owner pretends she expected this. She did not expect this.`; }
-    else { line = `No ribbon. The judges are polite. The competition was, the owner concedes on the drive home, "very strong this year."`; }
+    const extras = [];
+    if (total > ceiling) {
+      ribbon = "blue"; deltas.reputation = rint(8, 14); deltas.provenance = rint(2, 4);
+      line = `Blue. The judges sign the card. The owner does not breathe out for several seconds.`;
+      // theme awards on a strong showing
+      if (cs >= 80 && WARDROBE_PIECES.every(p => ["original","period"].includes(d.wardrobe[p].state))) {
+        extras.push("originalCostume");
+        line += ` She also takes Original Costume — every piece on her dates to the maker's era.`;
+      }
+      if (total > ceiling + 10) {
+        extras.push("bestOfClass");
+        line += ` And — the surprise of the morning — Best of Class.`;
+      }
+    } else if (total > ceiling - 13) {
+      ribbon = "red"; deltas.reputation = rint(4, 8);
+      line = `Red. Second in your category. The owner is satisfied. She tells the story for years anyway.`;
+    } else if (total > ceiling - 28) {
+      ribbon = "white"; deltas.reputation = rint(2, 5);
+      line = `White. Third. Honorable mention. The owner pretends she expected this. She did not expect this.`;
+    } else {
+      line = `No ribbon. The judges are polite. The competition was, the owner concedes on the drive home, "very strong this year."`;
+    }
+    const awardSummary = ribbon !== "none" ? [ribbon, ...extras].join(" + ") : null;
     return {
-      deltas, ribbon,
-      memory: ribbon !== "none" ? `You took a ${ribbon} ribbon at the ${pick(["regional in Cherry Hill","Eastern Regional","Lone Star Regional","Southern Regional","Pacific Regional"])}.` : null,
+      deltas, ribbon, ribbonAwards: extras,
+      memory: awardSummary ? `You took ${awardSummary} at the ${pick(["regional in Cherry Hill","Eastern Regional","Lone Star Regional","Southern Regional","Pacific Regional"])}.` : null,
       narration: line,
       flags: { showCompleted: true },
       yearsElapsed: 1,
@@ -1158,11 +1188,22 @@ addScenario({
     const ceiling = 84 - (5 - d.desirability) * 3;
     const total = score + noise;
     let ribbon = "none", line, end = null;
+    const extras = [];
     const deltas = { reputation: rint(8, 14), provenance: rint(4, 8) };
     if (total > ceiling) {
       ribbon = "blue"; deltas.reputation += rint(6, 10);
-      line = `BLUE. First in your category at Nationals. The owner is asked, in a hallway, to be photographed with you. She says yes. She has practiced saying yes for thirty years.`;
-      end = { kind: "blue_ribbon" };
+      // theme award on strong original costume
+      if (cs >= 85 && WARDROBE_PIECES.every(p => ["original","period"].includes(d.wardrobe[p].state))) {
+        extras.push("originalCostume");
+      }
+      // best of show — only at nationals, only for top scores
+      if (total > ceiling + 12) {
+        extras.push("bestOfShow");
+        line = `BEST OF SHOW. The convention's highest award. The hush in the ballroom is real. The owner is asked to come to the stage and forgets, briefly, how walking works.`;
+      } else {
+        line = `BLUE. First in your category at Nationals. The owner is asked, in a hallway, to be photographed with you. She says yes. She has practiced saying yes for thirty years.`;
+      }
+      end = { kind: "blue_ribbon", bestOfShow: extras.includes("bestOfShow") };
     } else if (total > ceiling - 12) {
       ribbon = "red"; deltas.reputation += rint(4, 7);
       line = `Red ribbon at Nationals. Second. She says, in the elevator, that she will bring you back. She means it.`;
@@ -1173,7 +1214,7 @@ addScenario({
       line = `No ribbon at Nationals. The category was, frankly, brutal. The owner is dignified about it on the way home.`;
     }
     return {
-      deltas, ribbon,
+      deltas, ribbon, ribbonAwards: extras,
       memory: `You were entered at the UFDC National Convention.`,
       narration: line,
       flags: { showCompleted: true, attendedNationals: true },
@@ -1199,6 +1240,7 @@ addScenario({
     deltas: { reputation: rint(10, 18), provenance: rint(4, 8) },
     memory: "You were featured in Antique Doll Collector magazine.",
     flags: { featuredInMagazine: true },
+    item: { id: "magazine_feature", name: "a two-page feature in Antique Doll Collector", flavor: "the owner kept eight copies; one is in your file", positive: true },
     narration: `Two pages. Color plate. The writer gets your mold number right. The owner buys eight copies. She mails three.`,
     yearsElapsed: 1,
   }),
@@ -1705,6 +1747,43 @@ addScenario({
   thoughts: ["I am being honored.", "Wherever I go, the marks travel with me.", "She will, occasionally, miss me."],
 });
 
+// ---- archives / positive provenance ----
+
+addScenario({
+  id: "archives_discovery",
+  title: "the archives",
+  weight: 2,
+  owners: ["serious", "curio", "inheritor"],
+  setup: d => `She has been going through her grandmother's things. There is a manila envelope at the bottom of a drawer.`,
+  roll: damageRoll({
+    receipt: {
+      weight: 0.35,
+      deltas: () => ({ provenance: rint(15, 25) }),
+      item: d => uniqueItem(d, { prefix: "original_receipt", name: "your original sales receipt", flavor: `${d.year}, ${pick(["F.A.O. Schwarz","Marshall Field's","Wanamaker's","Macy's","Hamley's of London","B. Altman & Co."])}, paid in full`, positive: true }),
+      memory: "Your original sales receipt was rediscovered.",
+      narration: `An envelope. A receipt. The store, the date, the price. The receipt is in your year. The receipt names your maker. She frames it.`,
+    },
+    photo: {
+      weight: 0.3,
+      deltas: () => ({ provenance: rint(8, 14) }),
+      item: d => uniqueItem(d, { prefix: "old_photo", name: "a photograph of you with a previous owner", flavor: "black and white, formal pose, both of you younger", positive: true }),
+      memory: "A photograph of you with a previous owner surfaced.",
+      narration: `A black-and-white photograph. A girl, perhaps eleven, holding you. She must be ninety now. Or gone.`,
+    },
+    letter: {
+      weight: 0.25,
+      deltas: () => ({ provenance: rint(10, 18) }),
+      item: d => uniqueItem(d, { prefix: "letter", name: "a letter mentioning you by name", flavor: "addressed to a daughter; you are referred to by name", positive: true }),
+      memory: "A letter mentioning you by name was found.",
+      narration: `A letter. To a daughter. You are mentioned by name. You did, it turns out, have a name once. It was Margaret. You did not know.`,
+    },
+    nothing: {
+      weight: 0.1,
+      narration: `An envelope of nothing relevant — old utility bills, a recipe for biscuits.`,
+    },
+  }),
+});
+
 // ---- additional encounters ----
 
 addScenario({
@@ -1794,6 +1873,7 @@ addScenario({
         deltas: { reputation: rint(10, 18), provenance: rint(6, 12) },
         memory: `You were lent to a regional doll museum for an exhibit on ${d.category}.`,
         flags: { lentToMuseum: true },
+        item: { id: "museum_catalog", name: "a museum exhibit catalog with your entry", flavor: "your name printed in the index, archival paper, glossy", positive: true },
         narration: `Behind glass for ninety days. A small placard with your maker, your year, your owner's first initial. You are documented in the catalog.`,
         yearsElapsed: 1,
       };
@@ -2289,7 +2369,7 @@ function renderStruct() {
 function renderRibbons() {
   if (!state.doll) { $ribbons.innerHTML = ''; return; }
   const r = state.doll.ribbons;
-  const total = r.blue + r.red + r.white;
+  const total = r.blue + r.red + r.white + r.bestOfClass + r.bestOfShow + r.originalCostume;
   let html = `<span class="label">Ribbons:</span> `;
   if (total === 0) {
     html += `<span class="none">none yet</span>`;
@@ -2297,6 +2377,9 @@ function renderRibbons() {
     if (r.blue) html += `<span class="pill blue">${r.blue} blue</span>`;
     if (r.red) html += `<span class="pill red">${r.red} red</span>`;
     if (r.white) html += `<span class="pill white">${r.white} white</span>`;
+    if (r.bestOfClass) html += `<span class="pill gold">${r.bestOfClass} Best of Class</span>`;
+    if (r.bestOfShow) html += `<span class="pill gold">${r.bestOfShow} Best of Show</span>`;
+    if (r.originalCostume) html += `<span class="pill gold">${r.originalCostume} Original Costume</span>`;
   }
   if (state.doll.attendedNationals) html += `<span class="pill gold">attended Nationals</span>`;
   $ribbons.innerHTML = html;
@@ -2304,12 +2387,15 @@ function renderRibbons() {
 
 function renderItems() {
   if (!state.doll || state.doll.items.length === 0) {
-    $items.innerHTML = '<div class="empty">No notable damage. Yet.</div>';
+    $items.innerHTML = '<div class="empty">Nothing on record yet.</div>';
     return;
   }
-  $items.innerHTML = state.doll.items.map(i =>
-    `<div><span class="ix-name">${i.name}</span> <span class="ix-flavor">— ${i.flavor}</span></div>`
-  ).join('');
+  // positive items first, then damage
+  const sorted = state.doll.items.slice().sort((a, b) => (b.positive ? 1 : 0) - (a.positive ? 1 : 0));
+  $items.innerHTML = sorted.map(i => {
+    const cls = i.positive ? 'ix-positive' : 'ix-damage';
+    return `<div class="${cls}"><span class="ix-name">${i.name}</span> <span class="ix-flavor">— ${i.flavor}</span></div>`;
+  }).join('');
 }
 
 function renderMemories() {
@@ -2431,7 +2517,7 @@ function newDoll(tpl) {
     reputation: rint(0, 8),
     wardrobe: newWardrobe(),
     body: newBody(),
-    ribbons: { blue: 0, red: 0, white: 0 },
+    ribbons: { blue: 0, red: 0, white: 0, bestOfClass: 0, bestOfShow: 0, originalCostume: 0 },
     attendedNationals: false,
     featuredInMagazine: false,
     items: [],
@@ -2615,11 +2701,18 @@ function applyOutcome(sc, outcome) {
     }
   }
 
-  // ribbon
+  // ribbon (primary) + ribbonAwards (theme/best-of awards)
   if (outcome.ribbon && outcome.ribbon !== "none") {
     d.ribbons[outcome.ribbon] = (d.ribbons[outcome.ribbon] || 0) + 1;
     const cls = outcome.ribbon === "blue" ? "ribbon-blue" : "ribbon-red";
     reports.push(`<span class="${cls}">${outcome.ribbon} ribbon</span>`);
+  }
+  if (Array.isArray(outcome.ribbonAwards)) {
+    for (const award of outcome.ribbonAwards) {
+      d.ribbons[award] = (d.ribbons[award] || 0) + 1;
+      const niceName = { bestOfClass: "Best of Class", bestOfShow: "Best of Show", originalCostume: "Original Costume" }[award] || award;
+      reports.push(`<span class="ribbon-blue">${niceName}</span>`);
+    }
   }
 
   if (reports.length) logSystem(reports.join(' &middot; '));
@@ -2692,8 +2785,11 @@ function endRun(end) {
   let verdict, epitaph, isWin = false;
   if (end.kind === "blue_ribbon") {
     isWin = true;
-    verdict = "BLUE RIBBON, NATIONALS";
-    epitaph = `${d.maker} ${d.mold} (${d.year}) wins her category at the UFDC National Convention at age ${d.age}. ${d.ownerCount} owners, ${d.ribbons.red + d.ribbons.white} earlier ribbons, ${d.items.length} marks accumulated along the way. She is, in the photograph that runs in the next month's bulletin, immaculate.`;
+    verdict = end.bestOfShow ? "BEST OF SHOW, NATIONALS" : "BLUE RIBBON, NATIONALS";
+    const headline = end.bestOfShow
+      ? `${d.maker} ${d.mold} (${d.year}) takes Best of Show at the UFDC National Convention at age ${d.age}.`
+      : `${d.maker} ${d.mold} (${d.year}) wins her category at the UFDC National Convention at age ${d.age}.`;
+    epitaph = `${headline} ${d.ownerCount} owners, ${d.ribbons.red + d.ribbons.white} earlier ribbons, ${d.items.filter(i => !i.positive).length} marks of damage and ${d.items.filter(i => i.positive).length} pieces of documentation accumulated along the way. She is, in the photograph that runs in the next month's bulletin, immaculate.`;
   } else if (end.kind === "destroyed") {
     verdict = "Beyond repair.";
     epitaph = `${d.maker} ${d.mold} (${d.year}) — ${end.how}. Made it to ${d.age} years old. ${d.ownerCount} owners. ${d.ribbons.blue} blue, ${d.ribbons.red} red, ${d.ribbons.white} white. ${d.scenarioCount} events.`;
