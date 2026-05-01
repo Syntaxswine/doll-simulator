@@ -2248,6 +2248,106 @@ addScenario({
   }),
 });
 
+// ---- cabinet-mate scenarios (need other dolls in the collection) ----
+
+addScenario({
+  id: "new_arrival",
+  title: "the new arrival",
+  weight: 3,
+  owners: ["serious", "curio", "hoarder", "dealer"],
+  guard: d => (d.owner.collectionMates || []).length > 0,
+  setup: d => `She has come home with another box. The tape is fresh. There is, in the room, the particular silence of a collector about to open something.`,
+  roll: d => {
+    const tpl = pick(DOLL_TEMPLATES.filter(t => t.id !== d.templateId));
+    const newMate = { maker: tpl.maker, mold: pick(tpl.molds) };
+    d.owner.collectionMates = (d.owner.collectionMates || []).concat([newMate]);
+    const r = Math.random();
+    if (r < 0.5) {
+      return { deltas: { reputation: -1 }, memory: `A ${newMate.maker} ${newMate.mold} arrived in the collection.`, narration: `It is a ${newMate.maker} ${newMate.mold}. It is, you concede, very fine. You shift, slightly, on the shelf to make room.`, yearsElapsed: 0 };
+    } else if (r < 0.85) {
+      return { deltas: { reputation: -3 }, memory: `A ${newMate.maker} ${newMate.mold} arrived; you were demoted on the shelf.`, narration: `It is a ${newMate.maker} ${newMate.mold}. It is placed in the prime spot on the shelf. You are placed, now, behind it.`, yearsElapsed: 0 };
+    } else {
+      return { deltas: { reputation: 2 }, narration: `It is a ${newMate.maker} ${newMate.mold}. The owner places it next to you with palpable pride. You decide, in your own way, to be welcoming.`, yearsElapsed: 0 };
+    }
+  },
+});
+
+addScenario({
+  id: "mate_sold",
+  title: "a cabinet-mate departs",
+  weight: 3,
+  owners: ["serious", "curio", "dealer", "hoarder"],
+  guard: d => (d.owner.collectionMates || []).length > 0,
+  setup: d => {
+    const mates = d.owner.collectionMates || [];
+    const mate = mates[0];
+    return `She has been thinking about narrowing the collection. The ${mate.maker} ${mate.mold} is being wrapped, this morning, for shipping.`;
+  },
+  roll: d => {
+    const mates = d.owner.collectionMates || [];
+    const idx = 0;
+    const removed = mates[idx];
+    d.owner.collectionMates = mates.filter((_, i) => i !== idx);
+    const r = Math.random();
+    if (r < 0.6) {
+      return { deltas: { reputation: 2 }, memory: `Her ${removed.maker} ${removed.mold} was sold; you remained.`, narration: `It is gone. The shelf is, this afternoon, slightly emptier. You feel — privately — chosen.`, yearsElapsed: rint(0, 1) };
+    } else {
+      return { narration: `It is gone. She kept you. She also kept, you note, a small pang.`, yearsElapsed: rint(0, 1) };
+    }
+  },
+});
+
+addScenario({
+  id: "shelf_compared",
+  title: "the comparison",
+  weight: 3,
+  owners: ["serious", "curio"],
+  guard: d => (d.owner.collectionMates || []).length > 0,
+  setup: d => {
+    const mate = pick(d.owner.collectionMates);
+    return `Two collectors at the cabinet. They are debating which is the finer example: you, or the ${mate.maker} ${mate.mold} on the shelf below.`;
+  },
+  roll: d => {
+    const mate = pick(d.owner.collectionMates);
+    const r = Math.random();
+    if (r < 0.55) {
+      return { deltas: { reputation: rint(2, 5) }, memory: `You were judged the finer example over a ${mate.maker} ${mate.mold}.`, narration: `They settle on you. Your costume, they agree, is the determining factor. The ${mate.maker} ${mate.mold} keeps its dignity, mostly.`, yearsElapsed: rint(0, 1) };
+    } else if (r < 0.85) {
+      return { deltas: { reputation: -rint(1, 3) }, memory: `A ${mate.maker} ${mate.mold} was preferred over you in a head-to-head.`, narration: `They settle on the ${mate.maker} ${mate.mold}. You are, frankly, taken aback. You will need to recover your composure on your own time.`, yearsElapsed: rint(0, 1) };
+    } else {
+      return { deltas: { reputation: rint(1, 3) }, narration: `They cannot decide. They drink the rest of the coffee in silence.`, yearsElapsed: rint(0, 1) };
+    }
+  },
+});
+
+// ---- museum donation: alternate win condition ----
+
+addScenario({
+  id: "museum_offer",
+  title: "the curator's letter",
+  weight: 0,                     // forced when prereqs met (like nationals)
+  owners: ["serious"],
+  guard: d => d.reputation >= 55 && d.provenance >= 50 && d.bisque >= 70 && !d.museumOffered,
+  setup: d => `A letter from the director of a regional doll museum on letterhead. They are mounting a permanent collection. They have, the letter says, "long admired" you. They are offering to acquire you, in perpetuity, for permanent display.`,
+  roll: damageRoll({
+    accept: {
+      weight: 0.65,
+      deltas: () => ({ reputation: rint(8, 14) }),
+      flags: { museumOffered: true },
+      memory: "You were donated to a regional doll museum, in perpetuity.",
+      runEnd: { kind: "museum_donation" },
+      narration: `She accepts. The paperwork takes six weeks. The transfer takes a Saturday. You are placed, behind temperature-controlled glass, in a long display case beside a Bru and a Käthe Kruse. There is a small placard. It is permanent.`
+    },
+    decline: {
+      weight: 0.35,
+      flags: { museumOffered: true },
+      deltas: { reputation: -2 },
+      memory: "A museum offered to acquire you; she declined.",
+      narration: `She declines. The letter goes in a drawer. She is, she tells her husband, not "ready." The doll, frankly, would have preferred the museum.`
+    },
+  }),
+});
+
 // ---- generic stable scenario for low-event days ----
 
 addScenario({
@@ -2339,11 +2439,15 @@ function renderVitals() {
 function renderStatus() {
   if (!state.doll) { $status.innerHTML = ''; return; }
   const d = state.doll;
+  const mates = d.owner.collectionMates || [];
+  const matesLine = mates.length === 0 ? '' :
+    `<div style="flex-basis:100%"><span class="label">Cabinet</span> <strong>${mates.map(m => m.maker + " " + m.mold).join(", ")}</strong></div>`;
   $status.innerHTML = `
     <div><span class="label">Age</span> <strong>${ageDisplay(d)}</strong></div>
     <div><span class="label">Owner</span> <strong>${d.owner.label}</strong></div>
     <div><span class="label">In her collection</span> <strong>${d.daysWithOwner} ${d.daysWithOwner === 1 ? 'event' : 'events'}</strong></div>
     <div><span class="label">Owners had</span> <strong>${d.ownerCount}</strong></div>
+    ${matesLine}
   `;
 }
 
@@ -2555,9 +2659,40 @@ function giveOwner(d, mode, force) {
   d.owner = {
     archetype,
     label: archetype.label,
+    collectionMates: rollCollectionMates(archetype, d),
   };
   d.daysWithOwner = 0;
   d.targetDuration = rint(archetype.duration[0], archetype.duration[1]);
+}
+
+// Roll a small set of other dolls in this owner's cabinet/inventory/house.
+// Range varies by archetype — serious collectors and dealers have more;
+// kids and inheritors usually have none. Each mate is a maker + mold.
+const COLLECTION_MATE_COUNTS = {
+  serious: [2, 4],
+  curio: [0, 2],
+  inheritor: [0, 1],
+  hostess: [0, 1],
+  hoarder: [1, 3],
+  dealer: [3, 5],
+  restorer: [2, 5],
+  estate: [1, 3],
+  child: [0, 0],
+};
+function rollCollectionMates(archetype, d) {
+  const range = COLLECTION_MATE_COUNTS[archetype.id] || [0, 0];
+  const n = rint(range[0], range[1]);
+  const mates = [];
+  for (let i = 0; i < n; i++) {
+    let tpl;
+    // make sure we don't trivially mirror the doll herself
+    for (let attempt = 0; attempt < 5; attempt++) {
+      tpl = pick(DOLL_TEMPLATES);
+      if (!d || tpl.id !== d.templateId) break;
+    }
+    mates.push({ maker: tpl.maker, mold: pick(tpl.molds) });
+  }
+  return mates;
 }
 
 // ============================================================
@@ -2565,10 +2700,14 @@ function giveOwner(d, mode, force) {
 // ============================================================
 
 function pickScenario(d) {
-  // forced terminal
+  // forced terminal: nationals and museum offer compete to fire when their guards pass
   const nationals = SCENARIOS.find(s => s.id === "nationals");
   if (nationals && (!nationals.guard || nationals.guard(d)) && roll(0.5)) {
     return nationals;
+  }
+  const museumOffer = SCENARIOS.find(s => s.id === "museum_offer");
+  if (museumOffer && (!museumOffer.guard || museumOffer.guard(d)) && roll(0.4)) {
+    return museumOffer;
   }
   // forced transition if owner duration exceeded
   if (d.daysWithOwner >= d.targetDuration) {
@@ -2790,6 +2929,10 @@ function endRun(end) {
       ? `${d.maker} ${d.mold} (${d.year}) takes Best of Show at the UFDC National Convention at age ${d.age}.`
       : `${d.maker} ${d.mold} (${d.year}) wins her category at the UFDC National Convention at age ${d.age}.`;
     epitaph = `${headline} ${d.ownerCount} owners, ${d.ribbons.red + d.ribbons.white} earlier ribbons, ${d.items.filter(i => !i.positive).length} marks of damage and ${d.items.filter(i => i.positive).length} pieces of documentation accumulated along the way. She is, in the photograph that runs in the next month's bulletin, immaculate.`;
+  } else if (end.kind === "museum_donation") {
+    isWin = true;
+    verdict = "PERMANENT MUSEUM ACCESSION";
+    epitaph = `${d.maker} ${d.mold} (${d.year}) is acquired by a regional doll museum at age ${d.age}, into the permanent collection. ${d.ownerCount} owners. ${d.ribbons.blue + d.ribbons.red + d.ribbons.white} ribbons, ${d.items.filter(i => i.positive).length} pieces of documentation, ${d.items.filter(i => !i.positive).length} marks of a long life. She will be visited, behind temperature-controlled glass, by every fourth-grade class in three counties for the rest of recorded history.`;
   } else if (end.kind === "destroyed") {
     verdict = "Beyond repair.";
     epitaph = `${d.maker} ${d.mold} (${d.year}) — ${end.how}. Made it to ${d.age} years old. ${d.ownerCount} owners. ${d.ribbons.blue} blue, ${d.ribbons.red} red, ${d.ribbons.white} white. ${d.scenarioCount} events.`;
