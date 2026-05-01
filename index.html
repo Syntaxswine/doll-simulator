@@ -704,6 +704,11 @@ function newBody() {
 }
 
 const LIMB_KEYS = ["leftArm", "rightArm", "leftLeg", "rightLeg"];
+const LIMB_STATES = ["attached", "loose", "detached", "missing"];
+const FRAGILE_BODY_MATERIALS = ["kid leather", "cloth", "felt", "composition", "mohair"];
+function isFragileBody(d) { return FRAGILE_BODY_MATERIALS.includes(d.bodyMaterial); }
+const PIECE_STATES = ["original", "period", "modern", "damaged", "missing"];
+const STAT_KEYS = ["bisque", "hair", "eyes", "provenance", "reputation"];  // bodyIntegrity handled separately
 const LIMB_LABEL = { leftArm: "L arm", rightArm: "R arm", leftLeg: "L leg", rightLeg: "R leg" };
 
 function limbsMissing(d) {
@@ -817,22 +822,122 @@ function ownerById(id) { return OWNER_TYPES.find(o => o.id === id); }
 // scenarios
 // ============================================================
 //
-// Each scenario provides:
-//   id, title, weight,
-//   owners: optional list of owner ids,
-//   guard: optional fn(d) -> bool,
-//   setup(d): narrator setup string,
-//   roll(d): outcome — { deltas, item, memory, narration, ribbon, ufdcResult,
-//                        changeOwner, ownerForce, runEnd, flags,
-//                        wardrobeChange, bodyChange, yearsElapsed, ageBoost }
-//   thoughts: 3 strings OR d => 3 strings (pure flavor; no mechanical effect)
+// SCENARIO SHAPE
+// --------------
+//   id:       unique string identifier (validated)
+//   title:    display name shown in the scene-title separator
+//   weight:   relative selection weight (0 = forced-only / terminal)
+//   owners:   optional [owner_id, ...] — only fires when current owner matches
+//   guard:    optional fn(d) -> bool — extra firing condition
+//   setup:    fn(d) -> string — narrator's situational opening line
+//   roll:     fn(d) -> outcome — see OUTCOME SHAPE below
+//   thoughts: 3 strings OR fn(d) -> 3 strings — FLAVOR ONLY, no mechanical effect
 //
-// thoughts are FLAVOR ONLY. The outcome is rolled at scenario start; all three
-// thought buttons trigger the same outcome. The thought is quoted, then the
+// OUTCOME SHAPE (returned from roll(d))
+// -------------------------------------
+//   deltas:         { bisque|hair|eyes|provenance|reputation|bodyIntegrity: number }
+//   wardrobeChange: { bonnet|dress|undergarments|stockings|shoeLeft|shoeRight: state }
+//                   states: original | period | modern | damaged | missing
+//   bodyChange:     { leftArm|rightArm|leftLeg|rightLeg: state, headAttached: bool, faceShattered: bool }
+//                   limb states: attached | loose | detached | missing
+//   item:           { id, name, flavor }   — duplicates by id are dropped
+//   memory:         string                 — appended to "What is known about you"
+//   narration:      string                 — body of the outcome description
+//   ribbon:         "blue" | "red" | "white" | "none"
+//   changeOwner:    bool — triggers a new owner roll
+//   ownerForce:     owner_id — forces a specific archetype
+//   flags:          { anyKey: anyValue }   — copied to doll for guards on later scenarios
+//   runEnd:         { kind: "destroyed"|"blue_ribbon", how: string }
+//   yearsElapsed:   number — overrides default 0–2 age advance
+//
+// THOUGHTS ARE FLAVOR ONLY. The outcome is rolled BEFORE thoughts are presented;
+// all three buttons trigger the same outcome. The thought is quoted, then the
 // world describes what was already going to happen.
+//
+// HELPERS
+// -------
+//   damageRoll({ branchName: { weight, ...outcomeFields }, ... })
+//       -> a roll() function that picks one branch by weight. Each outcome field
+//          may be a static value OR fn(d) -> value, so branches can compute
+//          against the doll (body material, current stats, etc).
+//
+//   uniqueItem(d, { name, flavor, prefix })
+//       -> { id: prefix + "_" + d.scenarioCount, name, flavor }
+//          Use when the same scenario can fire multiple times in a run and you
+//          want each instance to record a separate item. Without this, the second
+//          firing's item is silently dropped by the duplicate-id check.
+//
+//   isFragileBody(d) -> bool
+//       True when the body material rots under water, moths, or flooding
+//       (kid leather, cloth, felt, composition, mohair).
+//
+// VALIDATION
+// ----------
+// addScenario() warns on common mistakes (duplicate id, missing setup/roll,
+// unknown owner id, wrong thoughts shape). Open the browser console to see them.
+// applyOutcome() warns on unknown delta keys, wardrobe pieces, or body parts —
+// catches typos like { bisques: -8 } or { rightARM: "loose" } at runtime.
 
 const SCENARIOS = [];
-function addScenario(s) { SCENARIOS.push(s); }
+
+function addScenario(s) {
+  // Validation — warnings only, scenario is still pushed
+  const tag = s && s.id ? `[scenario ${s.id}]` : `[scenario]`;
+  if (!s || typeof s !== "object") { console.warn(`${tag} not an object`); return; }
+  if (!s.id) console.warn(`${tag} missing id`);
+  else if (SCENARIOS.some(x => x.id === s.id)) console.warn(`${tag} duplicate id`);
+  if (!s.title) console.warn(`${tag} missing title`);
+  if (typeof s.weight !== "number") console.warn(`${tag} weight should be a number`);
+  if (typeof s.setup !== "function") console.warn(`${tag} setup must be fn(d) -> string`);
+  if (typeof s.roll !== "function") console.warn(`${tag} roll must be fn(d) -> outcome`);
+  if (s.owners) {
+    if (!Array.isArray(s.owners)) console.warn(`${tag} owners must be an array`);
+    else for (const oid of s.owners) {
+      if (!OWNER_TYPES.some(o => o.id === oid)) console.warn(`${tag} unknown owner id: ${oid}`);
+    }
+  }
+  if (s.thoughts !== undefined) {
+    if (Array.isArray(s.thoughts)) {
+      if (s.thoughts.length !== 3) console.warn(`${tag} expected 3 thoughts, got ${s.thoughts.length}`);
+    } else if (typeof s.thoughts !== "function") {
+      console.warn(`${tag} thoughts must be array of 3 strings or fn(d) -> array of 3 strings`);
+    }
+  }
+  SCENARIOS.push(s);
+}
+
+// Roll-builder for the common multi-tier damage pattern.
+// Branches are weighted-picked; each branch's fields may be static or fn(d).
+const _OUTCOME_FIELDS = ["deltas", "wardrobeChange", "bodyChange", "item",
+  "memory", "narration", "ribbon", "changeOwner", "ownerForce", "flags",
+  "runEnd", "yearsElapsed"];
+function damageRoll(branches) {
+  const entries = Object.entries(branches);
+  for (const [name, b] of entries) {
+    if (typeof b.weight !== "number") console.warn(`damageRoll branch ${name} missing weight`);
+  }
+  return d => {
+    const total = entries.reduce((a, [, b]) => a + (b.weight || 0), 0);
+    let r = Math.random() * total;
+    for (const [, branch] of entries) {
+      r -= (branch.weight || 0);
+      if (r <= 0) {
+        const out = {};
+        for (const k of _OUTCOME_FIELDS) {
+          if (branch[k] === undefined) continue;
+          out[k] = (typeof branch[k] === "function") ? branch[k](d) : branch[k];
+        }
+        return out;
+      }
+    }
+    return {};
+  };
+}
+
+// Item factory for stackable items (multiple firings of the same scenario).
+function uniqueItem(d, { prefix, name, flavor }) {
+  return { id: prefix + "_" + d.scenarioCount, name, flavor };
+}
 
 // ---- arrival / transition ----
 
@@ -2345,9 +2450,11 @@ function applyOutcome(sc, outcome) {
     if (k === "bodyIntegrity") {
       d.body.integrity = clamp(d.body.integrity + v, 0, 100);
       applied.body = v;
-    } else if (typeof d[k] === "number") {
+    } else if (typeof d[k] === "number" && STAT_KEYS.includes(k)) {
       d[k] = clamp(d[k] + v, 0, 100);
       applied[k] = v;
+    } else {
+      console.warn(`[scenario ${sc.id}] unknown delta key: ${k}`);
     }
   }
   const reports = [];
@@ -2363,12 +2470,18 @@ function applyOutcome(sc, outcome) {
   if (outcome.wardrobeChange) {
     for (const piece in outcome.wardrobeChange) {
       const newState = outcome.wardrobeChange[piece];
-      if (d.wardrobe[piece]) {
-        const prev = d.wardrobe[piece].state;
-        if (prev !== newState) {
-          d.wardrobe[piece].state = newState;
-          reports.push(`<span class="${PIECE_VALUE[newState] >= PIECE_VALUE[prev] ? 'stat-up' : 'stat-dn'}">${PIECE_LABEL[piece]} → ${PIECE_STATE_LABEL[newState]}</span>`);
-        }
+      if (!d.wardrobe[piece]) {
+        console.warn(`[scenario ${sc.id}] unknown wardrobe piece: ${piece}`);
+        continue;
+      }
+      if (!PIECE_STATES.includes(newState)) {
+        console.warn(`[scenario ${sc.id}] unknown wardrobe state for ${piece}: ${newState}`);
+        continue;
+      }
+      const prev = d.wardrobe[piece].state;
+      if (prev !== newState) {
+        d.wardrobe[piece].state = newState;
+        reports.push(`<span class="${PIECE_VALUE[newState] >= PIECE_VALUE[prev] ? 'stat-up' : 'stat-dn'}">${PIECE_LABEL[piece]} → ${PIECE_STATE_LABEL[newState]}</span>`);
       }
     }
   }
@@ -2382,13 +2495,19 @@ function applyOutcome(sc, outcome) {
           d.body[part] = newState;
           reports.push(`<span class="stat-dn">${part}: ${newState}</span>`);
         }
-      } else if (d.body[part] !== undefined) {
+      } else if (LIMB_KEYS.includes(part)) {
+        if (!LIMB_STATES.includes(newState)) {
+          console.warn(`[scenario ${sc.id}] unknown limb state for ${part}: ${newState}`);
+          continue;
+        }
         const prev = d.body[part];
         if (prev !== newState) {
           d.body[part] = newState;
-          const cls = ["attached"].includes(newState) ? 'stat-up' : 'stat-dn';
-          reports.push(`<span class="${cls}">${LIMB_LABEL[part] || part}: ${newState}</span>`);
+          const cls = newState === "attached" ? 'stat-up' : 'stat-dn';
+          reports.push(`<span class="${cls}">${LIMB_LABEL[part]}: ${newState}</span>`);
         }
+      } else {
+        console.warn(`[scenario ${sc.id}] unknown body part: ${part}`);
       }
     }
   }
