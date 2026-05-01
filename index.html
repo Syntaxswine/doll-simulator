@@ -896,13 +896,8 @@ function addScenario(s) {
       if (!OWNER_TYPES.some(o => o.id === oid)) console.warn(`${tag} unknown owner id: ${oid}`);
     }
   }
-  if (s.thoughts !== undefined) {
-    if (Array.isArray(s.thoughts)) {
-      if (s.thoughts.length !== 3) console.warn(`${tag} expected 3 thoughts, got ${s.thoughts.length}`);
-    } else if (typeof s.thoughts !== "function") {
-      console.warn(`${tag} thoughts must be array of 3 strings or fn(d) -> array of 3 strings`);
-    }
-  }
+  // thoughts: optional flavor data, no longer rendered as buttons (kept for possible
+  // future revival as occasional narrator italics). No shape requirement.
   SCENARIOS.push(s);
 }
 
@@ -2110,6 +2105,12 @@ function bar(value) {
   const cls = v < 25 ? 'low' : v < 55 ? 'mid' : '';
   return `<span class="bar ${cls}"><span style="width:${v}%"></span></span><span class="num">${Math.round(v)}</span>`;
 }
+function ageDisplay(d) {
+  const total = d.ageMonths || 0;
+  const years = Math.floor(total / 12);
+  const months = total % 12;
+  return months === 0 ? `${years} years` : `${years} years, ${months} mo`;
+}
 
 function renderIdCard() {
   if (!state.doll) { $idCard.innerHTML = ''; return; }
@@ -2137,7 +2138,7 @@ function renderStatus() {
   if (!state.doll) { $status.innerHTML = ''; return; }
   const d = state.doll;
   $status.innerHTML = `
-    <div><span class="label">Age</span> <strong>${d.age} years</strong></div>
+    <div><span class="label">Age</span> <strong>${ageDisplay(d)}</strong></div>
     <div><span class="label">Owner</span> <strong>${d.owner.label}</strong></div>
     <div><span class="label">In her collection</span> <strong>${d.daysWithOwner} ${d.daysWithOwner === 1 ? 'event' : 'events'}</strong></div>
     <div><span class="label">Owners had</span> <strong>${d.ownerCount}</strong></div>
@@ -2285,7 +2286,7 @@ function newDoll(tpl) {
   if (tpl.category === "French Bébé") { bisque += 3; }
   if (tpl.category === "Cloth") { eyes = rint(60, 80); }
   if (tpl.category === "Hard Plastic") { bisque = rint(80, 95); }
-  const age = rint(tpl.startAge[0], tpl.startAge[1]);
+  const ageYears = rint(tpl.startAge[0], tpl.startAge[1]);
   const d = {
     templateId: tpl.id,
     maker: tpl.maker,
@@ -2299,7 +2300,8 @@ function newDoll(tpl) {
     fragility: tpl.fragility,
     bodyMaterial: tpl.bodyMaterial,
     wardrobeLabels: tpl.wardrobeLabels || null,
-    age,
+    age: ageYears,
+    ageMonths: ageYears * 12,
     bisque: clamp(bisque, 0, 100),
     hair: clamp(hair, 0, 100),
     eyes: clamp(eyes, 0, 100),
@@ -2410,29 +2412,8 @@ function runScenario(sc) {
   const d = state.doll;
   logSceneTitle(sc.title);
   logNarrator(sc.setup(d));
-
-  // Roll outcome NOW. The thoughts are pure flavor.
   const outcome = sc.roll(d);
-  d.pendingOutcome = { sc, outcome };
-
-  $controls.innerHTML = '';
-  const prompt = document.createElement('p');
-  prompt.className = 'prompt';
-  prompt.textContent = "(you can think one of these — it will not matter)";
-  $controls.appendChild(prompt);
-
-  const thoughts = typeof sc.thoughts === 'function' ? sc.thoughts(d) : sc.thoughts;
-  thoughts.forEach(text => {
-    const b = document.createElement('button');
-    b.textContent = text;
-    b.onclick = () => {
-      $controls.innerHTML = '';
-      logDoll(text);
-      applyOutcome(d.pendingOutcome.sc, d.pendingOutcome.outcome);
-    };
-    $controls.appendChild(b);
-  });
-  scheduleAutoAdvance();
+  applyOutcome(sc, outcome);
 }
 
 function applyOutcome(sc, outcome) {
@@ -2549,11 +2530,10 @@ function applyOutcome(sc, outcome) {
     logNarrator(`Your new owner: <strong>${d.owner.label}</strong>. ${d.owner.archetype.desc}`);
   }
 
-  // age advances
-  const ageAdvance = (outcome.yearsElapsed !== undefined) ? outcome.yearsElapsed : rint(0, 2);
-  if (ageAdvance > 0) {
-    d.age += ageAdvance;
-  }
+  // age advances: a fixed 3-month tick per click, plus any extra from yearsElapsed
+  const monthsAdvance = 3 + Math.round((outcome.yearsElapsed || 0) * 12);
+  d.ageMonths += monthsAdvance;
+  d.age = Math.floor(d.ageMonths / 12);
 
   renderAll();
 
@@ -2573,7 +2553,7 @@ function showContinue() {
   $controls.innerHTML = '';
   const b = document.createElement('button');
   b.className = 'primary';
-  b.textContent = "(time passes)";
+  b.textContent = "3 Months Pass";
   b.onclick = () => nextScenario();
   $controls.appendChild(b);
   scheduleAutoAdvance();
@@ -2641,13 +2621,7 @@ function scheduleAutoAdvance(delayMs) {
   if (state.phase !== "playing") return;
   if (state.autoplayTimer) clearTimeout(state.autoplayTimer);
   if (delayMs === undefined) {
-    // figure out which phase of the loop we're in by the visible buttons
-    const btns = $controls.querySelectorAll('button');
-    if (btns.length === 1 && btns[0].classList.contains('primary')) {
-      delayMs = 5400;  // (time passes) — give time to absorb the outcome
-    } else {
-      delayMs = 7500;  // thought selection — give time to read setup + thought options
-    }
+    delayMs = 8000;  // single click cadence: time to read setup + outcome before the next tick
   }
   state.autoplayTimer = setTimeout(() => {
     state.autoplayTimer = null;
