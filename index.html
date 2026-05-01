@@ -814,6 +814,15 @@ const OWNER_TYPES = [
     flags: { interim: true },
     hazard: 0.10,
   },
+  {
+    id: "child",
+    label: "the Child",
+    desc: "A niece, a granddaughter, a girl of perhaps eight. She has been told you are 'special' and 'old' and to be 'careful with you.' She loves you. She is incapable of any of those.",
+    weight: 0,            // never via random; only forced by transitions
+    duration: [4, 7],
+    flags: { children: true, pets: true, pool: true },
+    hazard: 0.55,
+  },
 ];
 
 function ownerById(id) { return OWNER_TYPES.find(o => o.id === id); }
@@ -963,14 +972,19 @@ addScenario({
   weight: 4,
   owners: ["estate"],
   setup: d => `An adult niece is opening boxes in a basement. She lifts you with both hands, the way she was once told to.`,
-  roll: d => ({
-    deltas: { provenance: rint(4, 10) },
-    memory: "You were inherited; she remembers being told your maker's name once.",
-    changeOwner: true,
-    ownerForce: pick(["inheritor", "inheritor", "hostess"]),
-    yearsElapsed: rint(0, 1),
-    narration: `She decides she will, after all, keep you. The decision is mostly guilt. Some affection.`
-  }),
+  roll: d => {
+    const giveToChild = roll(0.15);
+    return {
+      deltas: { provenance: rint(4, 10) },
+      memory: giveToChild ? "You were inherited and immediately given to a young niece." : "You were inherited; she remembers being told your maker's name once.",
+      changeOwner: true,
+      ownerForce: giveToChild ? "child" : pick(["inheritor", "inheritor", "hostess"]),
+      yearsElapsed: rint(0, 1),
+      narration: giveToChild
+        ? `She decides her young niece "should have it" — that the doll "needs to be played with." The decision is rapid and not, strictly, considered.`
+        : `She decides she will, after all, keep you. The decision is mostly guilt. Some affection.`
+    };
+  },
   thoughts: d => [
     `Recognize me. I am ${d.age} years old.`,
     "I knew your grandmother.",
@@ -1610,8 +1624,9 @@ addScenario({
     const r = Math.random();
     let force, line;
     if (r < 0.25) { force = "serious"; line = `A UFDC member happens by. She turns you over. She sees the marks. She does not haggle.`; }
-    else if (r < 0.55) { force = "curio"; line = `A retired schoolteacher takes you home in a paper bag.`; }
-    else if (r < 0.8) { force = "inheritor"; line = `A woman who collects "general antiques" buys you for fifteen dollars.`; }
+    else if (r < 0.5) { force = "curio"; line = `A retired schoolteacher takes you home in a paper bag.`; }
+    else if (r < 0.7) { force = "inheritor"; line = `A woman who collects "general antiques" buys you for fifteen dollars.`; }
+    else if (r < 0.85) { force = "child"; line = `A mother is gift-shopping for her daughter's eighth birthday. She picks you up because, she says, "you have such a kind face."`; }
     else { force = "hoarder"; line = `A woman with eight grocery bags already in her car adds you to the bags.`; }
     return { deltas: { provenance: -rint(2, 5) }, changeOwner: true, ownerForce: force, yearsElapsed: rint(0, 1), narration: line };
   },
@@ -2044,6 +2059,113 @@ addScenario({
     }
   },
   thoughts: ["Not the kitchen. Anywhere but the kitchen.", "The stove is on. She has forgotten me.", "If the cat leaps, this is over."],
+});
+
+// ---- child-owner scenarios ----
+
+addScenario({
+  id: "kid_tea_party",
+  title: "the tea party",
+  weight: 6,
+  owners: ["child"],
+  setup: d => `The good plastic teacups. The good plastic saucers. She has lined up four other dolls. None, you note, your match.`,
+  roll: damageRoll({
+    safe: { weight: 0.5, deltas: { hair: -3 }, wardrobeChange: d => d.wardrobe.dress.state === "original" ? { dress: "damaged" } : {}, narration: `She is delicate, for her. Real apple juice in tiny cups. Some of it on the table; some of it on you.` },
+    splash: { weight: 0.4, deltas: { hair: -8, bisque: -3 }, wardrobeChange: { dress: "damaged" }, item: d => uniqueItem(d, { prefix: "tea_juice", name: "apple-juice stains down the bodice", flavor: "she scrubbed it; it set" }), narration: `An accident with the pitcher. Cold juice down your front. The dress, after, is forever sticky in places.` },
+    drop: { weight: 0.1, deltas: { bisque: -10 }, bodyChange: { rightArm: "loose" }, narration: `She shows the other dolls how you "wave hello." She waves you too hard. The right shoulder takes it.` },
+  }),
+});
+
+addScenario({
+  id: "kid_haircut",
+  title: "the haircut",
+  weight: 4,
+  owners: ["child"],
+  guard: d => d.hair > 30,
+  setup: d => `Safety scissors. Plastic, blue. She has decided you "need a trim" and that she is "good at this."`,
+  roll: damageRoll({
+    chunk:        { weight: 0.6, deltas: d => ({ hair: -rint(15, 28) }), item: d => uniqueItem(d, { prefix: "kid_chop", name: "an asymmetric trim", flavor: "shorter on the left; visibly hand-cut" }), narration: `She trims, mostly, the left side. She discovers she has trimmed too much. She does not, frankly, care.` },
+    severe:       { weight: 0.3, deltas: d => ({ hair: -rint(30, 50) }), item: d => uniqueItem(d, { prefix: "kid_butcher", name: "a tragic haircut", flavor: "the wig is now half what it was" }), narration: `She chops with confidence. The wig is, after, half the wig.` },
+    catastrophic: { weight: 0.1, deltas: d => ({ hair: -rint(50, 75), bisque: -3 }), item: d => uniqueItem(d, { prefix: "kid_scalp", name: "a near-total wig loss", flavor: "she discovered the wig was glued; she pulled" }), narration: `She discovers the wig is attached. She experiments. Most of the wig now lives in a small ziploc bag her mother has hidden.` },
+  }),
+});
+
+addScenario({
+  id: "kid_marker",
+  title: "the marker",
+  weight: 3,
+  owners: ["child"],
+  setup: d => `She has found a marker. The marker says PERMANENT in capital letters, but she cannot read those.`,
+  roll: damageRoll({
+    cheek: { weight: 0.5, deltas: { bisque: -5 }, wardrobeChange: { dress: "damaged" }, item: d => uniqueItem(d, { prefix: "kid_marker_face", name: "a heart drawn on the cheek", flavor: "in red, indelible" }), narration: `A heart on the cheek. Three more on the dress. They will outlast everyone in this house.` },
+    body:  { weight: 0.4, deltas: { bisque: -8 }, item: d => uniqueItem(d, { prefix: "kid_marker_body", name: "I LOV U written across the bodice", flavor: "five letters; she ran out of room" }), narration: `She writes I LOV U across your bodice. Five letters. She runs out of room before the E.` },
+    eye:   { weight: 0.1, deltas: { bisque: -15, eyes: -10 }, item: d => uniqueItem(d, { prefix: "kid_marker_eye", name: "marker on one eyelid", flavor: "she was 'making you eyeshadow'" }), narration: `She decides you "need eyeshadow." The marker, applied to a glass eye, is — surprisingly — wipe-resistant.` },
+  }),
+});
+
+addScenario({
+  id: "kid_bath",
+  title: "the bath",
+  weight: 3,
+  owners: ["child"],
+  setup: d => `She has decided you are "dirty" and need a bath. She is filling the bathroom sink. She has, in fact, used soap.`,
+  roll: d => {
+    const fragile = isFragileBody(d);
+    const r = Math.random();
+    if (r < 0.4) {
+      return { deltas: { bisque: -3, hair: -rint(8, 15), bodyIntegrity: fragile ? -rint(10, 20) : -3 }, wardrobeChange: { dress: "damaged" }, item: uniqueItem(d, { prefix: "kid_bath", name: "permanently misshapen wig", flavor: "she shampooed you with grown-up shampoo" }), narration: `She is brief. The damage is real but recoverable. The wig will never sit right again.` };
+    } else if (r < 0.85) {
+      const bodyHit = fragile ? -rint(30, 50) : -8;
+      return { deltas: { bisque: -8, hair: -rint(15, 25), bodyIntegrity: bodyHit }, wardrobeChange: { dress: "damaged", undergarments: "damaged" }, item: uniqueItem(d, { prefix: "kid_soak", name: "a saturating bath", flavor: fragile ? "the body has not recovered" : "everything is finally dry" }), narration: `Twenty minutes underwater. ${fragile ? "The " + d.bodyMaterial + " body is failing." : "Most of you, eventually, dries."}` };
+    } else if (fragile) {
+      return { deltas: { bodyIntegrity: -100 }, runEnd: { kind: "destroyed", how: "the child gave you a bath" }, narration: `She runs the water full. You are submerged. The ${d.bodyMaterial} body does not survive.` };
+    } else {
+      return { deltas: { bisque: -25, hair: -30 }, item: uniqueItem(d, { prefix: "kid_soak_severe", name: "extensive bath damage", flavor: "she left you in the sink for a weekend" }), narration: `She forgets you in the sink for a weekend. You survive. Most of you.` };
+    }
+  },
+});
+
+addScenario({
+  id: "kid_show_tell",
+  title: "show-and-tell",
+  weight: 2,
+  owners: ["child"],
+  setup: d => `She is taking you to school. She has told the second-grade class that you are "older than the principal."`,
+  roll: damageRoll({
+    triumph: { weight: 0.4, deltas: { reputation: rint(2, 4) }, memory: "You were taken to a second-grade show-and-tell.", narration: d => `She presents you. The teacher recognizes the maker, briefly, before remembering she is at work. You are returned home in a backpack with ${pick(["a granola bar","a glue stick","a dead beetle","yesterday's homework"])}.` },
+    rough:   { weight: 0.45, deltas: d => ({ hair: -rint(5, 10), bisque: -3 }), wardrobeChange: { dress: "damaged" }, item: d => uniqueItem(d, { prefix: "showtell_wear", name: "wear from a school day in a backpack", flavor: "and an ink stain from a leaking pen" }), narration: `Other children touch you. Several of them have markers in their hands. The dress, when she retrieves you, has an ink mark.` },
+    fall:    { weight: 0.15, deltas: d => ({ bisque: -rint(15, 25) }), bodyChange: { rightArm: "detached" }, item: d => uniqueItem(d, { prefix: "showtell_drop", name: "a fall on the playground", flavor: "she dropped you in the line for the slide" }), narration: `She drops you on the playground. The arm comes off. She brings both pieces home. The teacher writes a note.` },
+  }),
+});
+
+addScenario({
+  id: "kid_grew_up",
+  title: "she outgrew you",
+  weight: 0,                    // forced when owner duration exceeded
+  owners: ["child"],
+  guard: d => d.daysWithOwner >= d.targetDuration,
+  setup: d => `She is twelve now. The dolls have all gone into a plastic bin under the bed. Her mother has been waiting for this.`,
+  roll: damageRoll({
+    saved:     { weight: 0.7, memory: "Her mother retrieved you when she outgrew you.", changeOwner: true, ownerForce: "inheritor", narration: `Her mother lifts you out of the bin and re-wraps you in tissue. You are placed, this time, on a high shelf where the child cannot reach.`, yearsElapsed: 1 },
+    sold:      { weight: 0.15, memory: "She outgrew you; her mother sold you in a yard sale.", changeOwner: true, ownerForce: () => pick(["dealer","curio","hoarder"]), narration: `Her mother does not know what you are. The yard sale is on a Saturday in May. You are priced at six dollars.`, yearsElapsed: 1 },
+    forgotten: { weight: 0.15, memory: "She outgrew you; you stayed in a bin in the basement.", changeOwner: true, ownerForce: "estate", narration: `The bin goes into the basement. The bin is, eventually, forgotten. You will surface again at an estate sale.`, yearsElapsed: () => rint(5, 12) },
+  }),
+});
+
+addScenario({
+  id: "the_birthday_gift",
+  title: "the birthday gift",
+  weight: 1,
+  owners: ["serious", "curio", "inheritor", "hostess"],
+  guard: d => d.daysWithOwner >= 2,
+  setup: d => `Her niece is turning eight. The aunt has decided this is the year to "pass the doll along."`,
+  roll: d => ({
+    deltas: { provenance: -rint(2, 5), reputation: -rint(1, 3) },
+    changeOwner: true, ownerForce: "child",
+    memory: "You were given to a young niece for a birthday.",
+    narration: `She wraps you in tissue. She writes a card. The card says she hopes you will be "loved and cared for." The eight-year-old is, frankly, going to do one of those things.`,
+    yearsElapsed: 0,
+  }),
 });
 
 // ---- generic stable scenario for low-event days ----
