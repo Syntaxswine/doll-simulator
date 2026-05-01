@@ -1590,6 +1590,362 @@ addScenario({
   thoughts: ["I am being honored.", "Wherever I go, the marks travel with me.", "She will, occasionally, miss me."],
 });
 
+// ---- additional encounters ----
+
+addScenario({
+  id: "doll_club",
+  title: "the doll club meeting",
+  weight: 4,
+  owners: ["serious"],
+  setup: d => `Six women, three folding tables, a Sara Lee pound cake. The chapter president is presiding. The owner has brought you in a velvet-lined case.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.6) {
+      return {
+        deltas: { reputation: rint(3, 7), provenance: roll(0.3) ? rint(1, 3) : 0 },
+        memory: roll(0.4) ? "You were passed around at a UFDC chapter meeting." : null,
+        narration: `You are passed around. Hands are washed first. Two members say things about your bisque that are, to your surprise, correct.`,
+        yearsElapsed: rint(0, 1),
+      };
+    } else if (r < 0.95) {
+      return {
+        deltas: { reputation: rint(5, 10), provenance: rint(2, 4) },
+        memory: "You drew the eye at a chapter meeting; your maker's mark was discussed.",
+        narration: `One of the older members goes very quiet. Then she lifts her loupe. Then she tells the room what you are. The room leans in.`,
+        yearsElapsed: rint(0, 1),
+      };
+    } else {
+      return {
+        deltas: { bisque: -8, hair: -3 },
+        bodyChange: { rightArm: "loose" },
+        item: { id: "club_drop_" + d.scenarioCount, name: "small chip on the shoulder", flavor: "from the chapter meeting; the member apologized for an hour" },
+        narration: `One member, frankly too old for the loupe, fumbles you. The chip is small. The apology lasts the rest of the meeting.`,
+        yearsElapsed: rint(0, 1),
+      };
+    }
+  },
+  thoughts: ["These hands are mostly trustworthy.", "Wash. Your. Hands.", "I am the most interesting thing in this room."],
+});
+
+addScenario({
+  id: "tv_appraisal",
+  title: "the antiques television show",
+  weight: 2,
+  owners: ["serious", "inheritor", "dealer"],
+  guard: d => !d.onTelevision,
+  setup: d => `A folding chair under hot lights. A man with a bow tie. A camera. The owner is, possibly, perspiring.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.55) {
+      return {
+        deltas: { provenance: rint(8, 16), reputation: rint(8, 14) },
+        memory: "You were valued on a syndicated antiques television program.",
+        flags: { onTelevision: true },
+        narration: `He turns you over. He says your maker's name. He gives a number that, on television, is heard by several million people. The owner's hand is trembling.`,
+        yearsElapsed: 1,
+      };
+    } else if (r < 0.9) {
+      return {
+        deltas: { provenance: rint(2, 5), reputation: rint(3, 7) },
+        memory: "You appeared on television; the appraisal was modest.",
+        flags: { onTelevision: true },
+        narration: `He gives a number. The number is fine. The owner is, internally, recalibrating.`,
+        yearsElapsed: 1,
+      };
+    } else {
+      return {
+        deltas: { provenance: -rint(8, 14), reputation: -rint(2, 5) },
+        flags: { onTelevision: true },
+        item: { id: "tv_doubt", name: "a televised maker doubt", flavor: "millions saw it; she asks the host off camera if they could 'do it again'" },
+        narration: `He turns you over. He is, on camera, unsure. He uses the words "school of" instead of the maker's name. The owner does not look at you on the way home.`,
+        yearsElapsed: 1,
+      };
+    }
+  },
+  thoughts: ["Hot lights. The bisque does not love hot lights.", "Read the marks. Read the marks correctly.", "I will be on television regardless."],
+});
+
+addScenario({
+  id: "museum_lend",
+  title: "the museum exhibit",
+  weight: 2,
+  owners: ["serious"],
+  guard: d => d.reputation >= 25 && d.bisque > 60 && !d.lentToMuseum,
+  setup: d => `A regional doll museum is mounting an exhibit on early-period bisque. Your owner has been asked, in a letter on letterhead, to lend you for ninety days.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.85) {
+      return {
+        deltas: { reputation: rint(10, 18), provenance: rint(6, 12) },
+        memory: `You were lent to a regional doll museum for an exhibit on ${d.category}.`,
+        flags: { lentToMuseum: true },
+        narration: `Behind glass for ninety days. A small placard with your maker, your year, your owner's first initial. You are documented in the catalog.`,
+        yearsElapsed: 1,
+      };
+    } else {
+      return {
+        deltas: { reputation: rint(6, 10), bisque: -3, hair: -3 },
+        memory: `You were lent to a museum; some handling wear was noted on return.`,
+        flags: { lentToMuseum: true },
+        item: { id: "museum_wear", name: "minor handling wear from a museum loan", flavor: "the curators were careful, the interns were not" },
+        narration: `Behind glass for ninety days, but the install and de-install were not what they should have been. There is, on return, minor wear.`,
+        yearsElapsed: 1,
+      };
+    }
+  },
+  thoughts: ["Behind glass. Properly lit. Properly humidified.", "I am a documentary subject now.", "Don't let the interns near me."],
+});
+
+addScenario({
+  id: "amateur_repair",
+  title: "the amateur repair",
+  weight: 4,
+  owners: ["inheritor", "hostess", "hoarder", "curio"],
+  guard: d => WARDROBE_PIECES.some(p => d.wardrobe[p].state === "damaged") || d.body.integrity < 70 || LIMB_KEYS.some(l => d.body[l] === "loose"),
+  setup: d => `She has decided that something can be done. She has a needle. She has a YouTube tab open.`,
+  roll: d => {
+    const damagedPieces = WARDROBE_PIECES.filter(p => d.wardrobe[p].state === "damaged");
+    const r = Math.random();
+    if (r < 0.3) {
+      if (damagedPieces.length) {
+        const piece = pick(damagedPieces);
+        return {
+          wardrobeChange: { [piece]: "modern" },
+          memory: `An amateur repair stabilized the ${pieceLabel(d, piece)}.`,
+          narration: `She is, against all expectations, careful. The repair is not period-correct, but it holds. A future appraiser will note the deviation.`,
+          yearsElapsed: 1,
+        };
+      }
+      return { deltas: { hair: rint(2, 5) }, narration: `She brushes the hair, gently. It helps.`, yearsElapsed: 1 };
+    } else if (r < 0.85) {
+      return {
+        deltas: { hair: -rint(3, 8), provenance: -rint(2, 5) },
+        wardrobeChange: damagedPieces.length ? { [pick(damagedPieces)]: "damaged" } : {},
+        item: { id: "amateur_stitch_" + d.scenarioCount, name: "amateur stitching, visible", flavor: "wrong color thread, wrong stitch length" },
+        narration: `She stitches with the wrong color of thread. She stitches with the wrong length of stitch. The repair is, frankly, worse than the damage.`,
+        yearsElapsed: 1,
+      };
+    } else {
+      return {
+        deltas: { bisque: -10, provenance: -rint(5, 10) },
+        bodyChange: { leftArm: "loose" },
+        item: { id: "glue_disaster_" + d.scenarioCount, name: "household glue residue", flavor: "she used the wrong glue; the residue will never come off" },
+        narration: `She uses Krazy Glue. The bottle says "for porcelain." The bottle is lying. There is now, permanently, a residue.`,
+        yearsElapsed: 1,
+      };
+    }
+  },
+  thoughts: ["YouTube. She is going to YouTube.", "Don't. Don't. Don't.", "Whatever she does, it will be visible from a foot away."],
+});
+
+addScenario({
+  id: "smoker_household",
+  title: "the smoking room",
+  weight: 3,
+  owners: ["inheritor", "hostess", "hoarder", "curio"],
+  guard: d => !d.items.some(i => i.id === "smoke_yellow"),
+  setup: d => `Decades of cigarette smoke. The walls in this house are slightly yellow. The drapes are slightly yellow. You are, slowly, slightly yellow.`,
+  roll: d => ({
+    deltas: { bisque: -rint(3, 7), hair: -rint(4, 8) },
+    wardrobeChange: { dress: d.wardrobe.dress.state === "original" ? "damaged" : d.wardrobe.dress.state },
+    item: { id: "smoke_yellow", name: "tobacco-yellowed bisque and fabric", flavor: "from a houseful of cigarettes; the smell never leaves" },
+    memory: "You spent some years in a household of smokers.",
+    narration: `Years of it. The bisque, on the side facing the room, has a faint nicotine cast. The smell is, by now, structural.`,
+    yearsElapsed: rint(2, 5),
+  }),
+  thoughts: ["The smell. The smell.", "I will need professional cleaning to leave this house.", "She lights another. The window is, of course, closed."],
+});
+
+addScenario({
+  id: "basement_flood",
+  title: "the basement",
+  weight: 2,
+  owners: ["hoarder", "inheritor", "estate"],
+  setup: d => `She has stored the box in the basement. The basement, last spring, took on water. She has not yet noticed.`,
+  roll: d => {
+    const fragileBody = ["kid leather","cloth","felt","composition","mohair"].includes(d.bodyMaterial);
+    const r = Math.random();
+    if (r < 0.4) {
+      return {
+        deltas: { bisque: -rint(3, 6), hair: -rint(4, 8) },
+        wardrobeChange: { dress: "damaged", undergarments: "damaged" },
+        item: { id: "basement_smell", name: "a faint basement smell", flavor: "no amount of fresh air resolves it" },
+        narration: `Some moisture got in. The dress is darkened at the hem. The smell will outlast the owner.`,
+        yearsElapsed: rint(1, 2),
+      };
+    } else if (r < 0.85) {
+      const bodyHit = fragileBody ? -rint(20, 35) : -8;
+      return {
+        deltas: { bisque: -rint(6, 12), hair: -rint(8, 14), bodyIntegrity: bodyHit },
+        wardrobeChange: { dress: "damaged", undergarments: "damaged", bonnet: "damaged" },
+        item: { id: "basement_water", name: "long-term basement-water damage", flavor: fragileBody ? "the body has begun to fail" : "the cloth is permanently musty" },
+        narration: `The box was wet through. ${fragileBody ? "The " + d.bodyMaterial + " body is failing in places." : "Everything is musty; the clothing is permanently affected."}`,
+        yearsElapsed: rint(2, 4),
+      };
+    } else {
+      if (fragileBody) {
+        return {
+          deltas: { bodyIntegrity: -100 },
+          runEnd: { kind: "destroyed", how: "long-term basement water destroyed your " + d.bodyMaterial + " body" },
+          narration: `She finds the box years later. The cardboard has decomposed. The ${d.bodyMaterial} has not survived. The bisque, miraculously, is intact — but there is nothing to attach it to.`,
+          yearsElapsed: rint(2, 4),
+        };
+      }
+      return {
+        deltas: { bisque: -30, hair: -25, bodyIntegrity: -40 },
+        item: { id: "flood_destroyed", name: "extensive water and mildew damage", flavor: "from a flooded basement no one checked" },
+        narration: `She finds the box years later. You are damaged, comprehensively. Restoration is possible but extensive.`,
+        yearsElapsed: rint(2, 4),
+      };
+    }
+  },
+  thoughts: ["Above-grade storage. Always above-grade.", "It is wet here.", "If this becomes mold, that is the end."],
+});
+
+addScenario({
+  id: "shelf_collapse",
+  title: "the shelf collapse",
+  weight: 1,
+  owners: ["serious", "curio"],
+  setup: d => `A pop. A second pop, louder. The shelf gives way. The cabinet's contents — five porcelain pieces and you — go.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.35) {
+      return {
+        deltas: { hair: -3 },
+        narration: `You land on the lower shelf, on top of a Limoges figurine. The Limoges figurine takes the impact. You are unscathed; the Limoges is in pieces.`,
+        yearsElapsed: 0,
+      };
+    } else if (r < 0.85) {
+      return {
+        deltas: { bisque: -rint(8, 18), hair: -rint(3, 6) },
+        bodyChange: { leftArm: "loose" },
+        item: { id: "shelf_chip_" + d.scenarioCount, name: "a chip from a shelf collapse", flavor: "the cabinet was overloaded; restoration possible" },
+        narration: `You hit the floor. The shoulder takes the brunt. There is a chip. The arm, after, hangs slightly wrong.`,
+        yearsElapsed: 0,
+      };
+    } else {
+      return {
+        deltas: { bisque: -100 },
+        bodyChange: { faceShattered: true },
+        runEnd: { kind: "destroyed", how: "a shelf collapse" },
+        narration: `You hit hardwood, face-first. The pieces — there are several — are too small to glue. The owner is on the phone with her insurance agent within the hour.`,
+        yearsElapsed: 0,
+      };
+    }
+  },
+  thoughts: ["The shelf is overloaded. I have known for months.", "Brace. As if I could brace.", "If I land face-down, this is the end."],
+});
+
+addScenario({
+  id: "vacation_trip",
+  title: "the vacation",
+  weight: 2,
+  owners: ["hostess", "inheritor"],
+  setup: d => `She has decided you should "see the country." She has packed you in a vinyl tote. She is bringing you to her sister's, in another state, by car.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.4) {
+      return {
+        deltas: { hair: -rint(2, 5), provenance: roll(0.3) ? rint(1, 3) : 0 },
+        memory: "You traveled across state lines in a vinyl tote.",
+        narration: `She brings you back, more or less intact. Her sister, who knows nothing of dolls, was politely impressed.`,
+        yearsElapsed: rint(0, 1),
+      };
+    } else if (r < 0.85) {
+      return {
+        deltas: { bisque: -rint(4, 8), hair: -rint(5, 10) },
+        wardrobeChange: { dress: "damaged" },
+        item: { id: "trip_wear", name: "wear from being carried in a vinyl tote", flavor: "dust, lint, and the smell of the inside of a car" },
+        narration: `Eight hundred miles in a tote. The lint, the heat from the back window, the spilled drink. She apologizes for, specifically, none of it.`,
+        yearsElapsed: rint(0, 1),
+      };
+    } else {
+      return {
+        deltas: { bisque: -rint(8, 15), hair: -rint(8, 14), provenance: -rint(5, 10) },
+        wardrobeChange: { dress: "damaged", bonnet: "damaged" },
+        item: { id: "trip_lost", name: "wear from a year at a sister-in-law's house", flavor: "where she remained, forgotten, on a guest-room nightstand" },
+        narration: `She forgets you at her sister's. You spend a year on a guest-room nightstand in indirect sun. She retrieves you, finally, after a holiday.`,
+        yearsElapsed: 1,
+      };
+    }
+  },
+  thoughts: ["The car. The closed car. The hot car.", "I have not been across state lines in eighty years.", "If she leaves me at her sister's, I will manage."],
+});
+
+addScenario({
+  id: "ebay_listing",
+  title: "the eBay listing",
+  weight: 3,
+  owners: ["inheritor", "dealer"],
+  setup: d => `A white sheet. A phone camera. A description being typed by hunt-and-peck. The asking price is, frankly, on the low side.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.5) {
+      return {
+        deltas: { provenance: -rint(2, 5), reputation: -rint(1, 3) },
+        memory: "You were listed online; your maker's marks were misspelled in the description.",
+        narration: `The listing is up for two months. The headline reads "old porcelain doll antique nice." She lowers the price three times.`,
+        yearsElapsed: rint(0, 1),
+      };
+    } else if (r < 0.85) {
+      const force = pick(["dealer", "curio", "hoarder", "inheritor"]);
+      return {
+        deltas: { provenance: -rint(2, 4) },
+        changeOwner: true, ownerForce: force,
+        memory: "You were sold online to a stranger.",
+        narration: `Sold. You are repackaged in a USPS box and shipped, with insufficient padding, across the country.`,
+        yearsElapsed: rint(0, 1),
+      };
+    } else {
+      return {
+        deltas: { provenance: rint(4, 8), reputation: rint(3, 6) },
+        changeOwner: true, ownerForce: "serious",
+        memory: "A UFDC member spotted you in a misdescribed online listing.",
+        narration: `A UFDC member is browsing, late at night, and recognizes the maker from the photo alone. She buys it within forty seconds. She is, when you arrive, beside herself.`,
+        yearsElapsed: 0,
+      };
+    }
+  },
+  thoughts: ["Front-three-quarter is the angle. She does not know.", "Misspell my maker. It might save me.", "Anyone reading carefully will know what I am."],
+});
+
+addScenario({
+  id: "the_kitchen",
+  title: "the kitchen counter",
+  weight: 2,
+  owners: ["inheritor", "hostess", "hoarder"],
+  setup: d => `She has set you on the kitchen counter for a moment. The moment is becoming a long moment. The stove is on.`,
+  roll: d => {
+    const r = Math.random();
+    if (r < 0.5) {
+      return {
+        deltas: { hair: -rint(2, 4) },
+        item: { id: "kitchen_grease", name: "a faint grease film", flavor: "from an afternoon next to the stove" },
+        narration: `An afternoon. The grease in the air settles, faintly, on you. She moves you, eventually, but not before the bacon.`,
+        yearsElapsed: 0,
+      };
+    } else if (r < 0.9) {
+      return {
+        deltas: { bisque: -rint(3, 7), hair: -rint(5, 8) },
+        wardrobeChange: { dress: "damaged" },
+        item: { id: "kitchen_splash_" + d.scenarioCount, name: "a tomato-sauce stain on the dress", flavor: "she will scrub it; it will not come out" },
+        narration: `Something splashes from the stove. A small but permanent contribution to your dress.`,
+        yearsElapsed: 0,
+      };
+    } else {
+      return {
+        deltas: { bisque: -25 },
+        bodyChange: { rightArm: "detached" },
+        item: { id: "kitchen_drop_" + d.scenarioCount, name: "a fall onto tile", flavor: "the right arm came off; it was glued back" },
+        narration: `The cat, unaccountably, leaps onto the counter. The cat knocks you onto the tile. The right arm comes off. She finds it later, under the dishwasher.`,
+        yearsElapsed: 0,
+      };
+    }
+  },
+  thoughts: ["Not the kitchen. Anywhere but the kitchen.", "The stove is on. She has forgotten me.", "If the cat leaps, this is over."],
+});
+
 // ---- generic stable scenario for low-event days ----
 
 addScenario({
@@ -2059,11 +2415,12 @@ function applyOutcome(sc, outcome) {
     d.memories.push(outcome.memory);
   }
 
-  // flags
+  // flags — generic copy onto the doll, plus a small special case for showCompleted
   if (outcome.flags) {
+    for (const k in outcome.flags) {
+      d[k] = outcome.flags[k];
+    }
     if (outcome.flags.showCompleted) d.lastShowAt = d.scenarioCount;
-    if (outcome.flags.attendedNationals) d.attendedNationals = true;
-    if (outcome.flags.featuredInMagazine) d.featuredInMagazine = true;
   }
 
   // owner change
