@@ -336,6 +336,16 @@
   }
   .doll-option .stars { letter-spacing: 0.08em; color: var(--ribbon); }
   .doll-option .stars.muted { color: var(--muted); }
+  .doll-option.random {
+    border-style: dashed;
+    border-color: var(--gilt);
+    grid-column: 1 / -1;
+    text-align: center;
+  }
+  .doll-option.random .opt-name { color: var(--gilt); }
+  .doll-option.random .opt-meta,
+  .doll-option.random .opt-note,
+  .doll-option.random .opt-stats { text-align: center; }
   /* autoplay toolbar */
   .autoplay-row {
     display: flex;
@@ -2549,6 +2559,19 @@ function showSelectionScreen() {
   renderMemories();
 
   $dollSelect.innerHTML = '';
+
+  // Random doll card — span both columns, picks uniformly at run start
+  const randCard = document.createElement('div');
+  randCard.className = 'doll-option random';
+  randCard.innerHTML = `
+    <div class="opt-name">🎲 Random Doll</div>
+    <div class="opt-meta">let chance pick the difficulty</div>
+    <div class="opt-note">Picked uniformly from all ${DOLL_TEMPLATES.length} templates. You won't know what she is until the case opens.</div>
+    <div class="opt-stats">Difficulty: ?  ·  Desirability: <span class="stars">★?</span>  ·  Fragility: <span class="stars muted">★?</span></div>
+  `;
+  randCard.onclick = () => beginRun(pick(DOLL_TEMPLATES));
+  $dollSelect.appendChild(randCard);
+
   for (const tpl of DOLL_TEMPLATES) {
     const card = document.createElement('div');
     card.className = 'doll-option';
